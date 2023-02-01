@@ -28,8 +28,8 @@ No resources.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_availability_zones"></a> [availability\_zones](#input\_availability\_zones) | List of AZs in AWS to deploy into | `list(any)` | <pre>[<br>  "us-east-2a",<br>  "us-east-2b"<br>]</pre> | no |
-| <a name="input_private_subnet_cidrs"></a> [private\_subnet\_cidrs](#input\_private\_subnet\_cidrs) | List of Private Subnet CIDRs | `list(any)` | <pre>[<br>  "10.2.64.0/19",<br>  "10.2.96.0/19"<br>]</pre> | no |
-| <a name="input_public_subnet_cidrs"></a> [public\_subnet\_cidrs](#input\_public\_subnet\_cidrs) | List of Public Subnet CIDRs | `list(any)` | <pre>[<br>  "10.0.0.0/27",<br>  "10.0.16.0/27"<br>]</pre> | no |
+| <a name="input_private_subnet_cidrs"></a> [private\_subnet\_cidrs](#input\_private\_subnet\_cidrs) | List of Private Subnet CIDRs | `list(any)` | <pre>[<br>  "10.0.100.0/24",<br>  "10.0.101.0/24"<br>]</pre> | no |
+| <a name="input_public_subnet_cidrs"></a> [public\_subnet\_cidrs](#input\_public\_subnet\_cidrs) | List of Public Subnet CIDRs | `list(any)` | <pre>[<br>  "10.0.0.0/24",<br>  "10.0.1.0/24"<br>]</pre> | no |
 | <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | `"us-east-2"` | no |
 | <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | CIDR of VPC | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_vpc_tag_prefix"></a> [vpc\_tag\_prefix](#input\_vpc\_tag\_prefix) | Prefix tag for VPCs | `string` | `"dynamic-policy-saas-cluster"` | no |

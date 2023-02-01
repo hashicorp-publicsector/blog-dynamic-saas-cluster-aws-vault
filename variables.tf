@@ -22,14 +22,14 @@ variable "vpc_cidr" {
 variable "private_subnet_cidrs" {
   description = "List of Private Subnet CIDRs"
   type        = list(any)
-  default     = ["10.2.64.0/19", "10.2.96.0/19"]
+  default     = ["10.0.100.0/24", "10.0.101.0/24"]
 
 }
 
 variable "public_subnet_cidrs" {
   description = "List of Public Subnet CIDRs"
   type        = list(any)
-  default     = ["10.0.0.0/27", "10.0.16.0/27"]
+  default     = ["10.0.0.0/24", "10.0.1.0/24"]
 }
 
 variable "vpc_tag_prefix" {
