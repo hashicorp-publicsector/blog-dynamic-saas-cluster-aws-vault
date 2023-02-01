@@ -41,3 +41,4 @@ secrets.tfvars
 .pre-commit-config.yaml
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform
+/archived/
