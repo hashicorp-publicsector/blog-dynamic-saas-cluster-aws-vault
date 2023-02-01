@@ -11,7 +11,9 @@ This is a Terraform version of the AWS Blog post for Dynamic Policy for SaaS wit
 
 ## Providers
 
-No providers.
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.51.0 |
 
 ## Modules
 
@@ -21,7 +23,9 @@ No providers.
 
 ## Resources
 
-No resources.
+| Name | Type |
+|------|------|
+| [aws_dynamodb_table.ProductTable](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 
 ## Inputs
 

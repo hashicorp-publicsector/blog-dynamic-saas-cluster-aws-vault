@@ -27,3 +27,31 @@ module "vpc" {
   private_subnet_names = ["${var.vpc_tag_prefix}/PrivateSubnet01", "${var.vpc_tag_prefix}/PrivateSubnet02"]
   public_subnet_names  = ["${var.vpc_tag_prefix}/PublicSubnet01", "${var.vpc_tag_prefix}/PublicSubnet02"]
 }
+
+
+# Dynamo DB Configuration
+resource "aws_dynamodb_table" "ProductTable" {
+  attribute {
+    name = "ProductID"
+    type = "S"
+  }
+
+  attribute {
+    name = "ShardID"
+    type = "S"
+  }
+
+  billing_mode = "PROVISIONED"
+  hash_key     = "ShardID"
+  name         = "Products_xdgssrli"
+
+  point_in_time_recovery {
+    enabled = "false"
+  }
+
+  range_key      = "ProductID"
+  read_capacity  = "5"
+  stream_enabled = "false"
+  table_class    = "STANDARD"
+  write_capacity = "5"
+}
