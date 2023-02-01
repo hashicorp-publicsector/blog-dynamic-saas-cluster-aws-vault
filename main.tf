@@ -1,5 +1,7 @@
-# Data Sources #
+#### Data Sources ####
 data "aws_caller_identity" "current" {}
+
+data "aws_canonical_user_id" "current" {}
 
 data "aws_iam_policy_document" "generic_endpoint_policy" {
   statement {
@@ -21,7 +23,84 @@ data "aws_iam_policy_document" "generic_endpoint_policy" {
   }
 }
 
-#### VPC Configuration
+data "aws_iam_policy_document" "s3_bucket_policy" {
+  statement {
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      "${aws_s3_bucket.vault_s3_bucket.arn}",
+      "${aws_s3_bucket.vault_s3_bucket.arn}/*"
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+
+      values = ["false"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "s3_bucket_logs_policy" {
+  statement {
+    effect  = "Allow"
+    actions = ["s3:PutObject"]
+    resources = [
+      "${aws_s3_bucket.access_logs_bucket.arn}/*"
+    ]
+    principals {
+      type        = "Service"
+      identifiers = ["logging.s3.amazonaws.com"]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["${aws_s3_bucket.vault_s3_bucket.arn}"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = ["${data.aws_caller_identity.current.account_id}"]
+    }
+
+
+  }
+  statement {
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      "${aws_s3_bucket.access_logs_bucket.arn}",
+      "${aws_s3_bucket.access_logs_bucket.arn}/*"
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+
+
+
+  }
+}
+
+#### Random string generator ####
+resource "random_string" "random_string" {
+  length           = 8
+  special          = true
+  upper            = false
+  override_special = "-"
+}
+
+#### VPC Configuration ####
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "3.19.0"
@@ -152,7 +231,7 @@ module "vpc_cni_irsa" {
 }
 
 
-#### EKS Configuration
+#### EKS Configuration ####
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "19.6.0"
@@ -231,7 +310,7 @@ module "eks" {
   }
 }
 
-#### Security Configuration
+#### Security Configuration ####
 module "kms_key" {
   source  = "terraform-aws-modules/kms/aws"
   version = "~> 1.1"
@@ -268,7 +347,7 @@ resource "aws_security_group" "vpc_tls" {
   }
 }
 
-#### Dynamo DB Configuration
+#### Dynamo DB Configuration ####
 resource "aws_dynamodb_table" "ProductTable" {
   attribute {
     name = "ProductID"
@@ -293,4 +372,130 @@ resource "aws_dynamodb_table" "ProductTable" {
   stream_enabled = "false"
   table_class    = "STANDARD"
   write_capacity = "5"
+}
+
+#### S3 Configuration ####
+resource "aws_s3_bucket" "vault_s3_bucket" {
+  bucket = "vault-agent-template-${random_string.random_string.id}"
+}
+
+resource "aws_s3_bucket_public_access_block" "vault_s3_bucket" {
+  bucket = aws_s3_bucket.vault_s3_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "vault_s3_bucket" {
+  bucket = aws_s3_bucket.vault_s3_bucket.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_logging" "vault_s3_bucket" {
+  bucket = aws_s3_bucket.vault_s3_bucket.id
+
+  target_bucket = aws_s3_bucket.access_logs_bucket.id
+  target_prefix = "/"
+}
+
+resource "aws_s3_bucket_policy" "vault_s3_bucket" {
+  bucket = aws_s3_bucket.vault_s3_bucket.id
+  policy = data.aws_iam_policy_document.s3_bucket_policy.json
+}
+
+resource "aws_s3_bucket" "access_logs_bucket" {
+  bucket = "${aws_s3_bucket.vault_s3_bucket.id}-access-logs"
+}
+
+resource "aws_s3_bucket_public_access_block" "access_logs_bucket" {
+  bucket = aws_s3_bucket.access_logs_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "access_logs_bucket" {
+  bucket = aws_s3_bucket.access_logs_bucket.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "access_logs_bucket" {
+  bucket = aws_s3_bucket.access_logs_bucket.id
+  policy = data.aws_iam_policy_document.s3_bucket_logs_policy.json
+}
+
+resource "aws_s3_bucket_acl" "access_logs_bucket" {
+  bucket = aws_s3_bucket.access_logs_bucket.id
+  access_control_policy {
+    grant {
+      grantee {
+        type = "Group"
+        uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
+      }
+      permission = "READ_ACP"
+    }
+    grant {
+      grantee {
+        type = "Group"
+        uri  = "http://acs.amazonaws.com/groups/s3/LogDelivery"
+      }
+      permission = "WRITE"
+    }
+
+    owner {
+      id = data.aws_canonical_user_id.current.id
+    }
+  }
+}
+
+
+#### ECR Configuration
+resource "aws_ecr_repository" "cli" {
+  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-aws-cli"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+  }
+}
+
+resource "aws_ecr_repository" "vault" {
+  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+  }
+}
+
+resource "aws_ecr_repository" "vault-k8s" {
+  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
+  }
 }
