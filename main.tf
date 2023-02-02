@@ -1,3 +1,14 @@
+/*
+
+# This configuration is terraform code in development to showcase Dynamic Credential Brokering in a secure SaaS cluster.
+It is currently a WIP, and under active development
+
+
+TODO: refactor logical resource names to use snake case across codebase
+TODO: push containers to ECR
+
+*/
+
 #### Data Sources ####
 data "aws_caller_identity" "current" {}
 
@@ -67,8 +78,6 @@ data "aws_iam_policy_document" "s3_bucket_logs_policy" {
       variable = "aws:SourceAccount"
       values   = ["${data.aws_caller_identity.current.account_id}"]
     }
-
-
   }
   statement {
     effect  = "Deny"
@@ -86,18 +95,7 @@ data "aws_iam_policy_document" "s3_bucket_logs_policy" {
       variable = "aws:SecureTransport"
       values   = ["false"]
     }
-
-
-
   }
-}
-
-#### Random string generator ####
-resource "random_string" "random_string" {
-  length           = 8
-  special          = true
-  upper            = false
-  override_special = "-"
 }
 
 #### VPC Configuration ####
@@ -476,6 +474,10 @@ resource "aws_ecr_repository" "cli" {
   }
 }
 
+data "aws_ecr_authorization_token" "ecr-cli-token" {
+  registry_id = aws_ecr_repository.cli.registry_id
+}
+
 resource "aws_ecr_repository" "vault" {
   name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault"
 
@@ -488,6 +490,10 @@ resource "aws_ecr_repository" "vault" {
   }
 }
 
+data "aws_ecr_authorization_token" "ecr-vault-token" {
+  registry_id = aws_ecr_repository.vault.registry_id
+}
+
 resource "aws_ecr_repository" "vault-k8s" {
   name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
 
@@ -498,4 +504,66 @@ resource "aws_ecr_repository" "vault-k8s" {
   encryption_configuration {
     encryption_type = "KMS"
   }
+}
+
+data "aws_ecr_authorization_token" "ecr-vault-k8s-token" {
+  registry_id = aws_ecr_repository.vault-k8s.registry_id
+}
+
+#### Secure Image Delivery to ECR ####
+resource "docker_image" "vault" {
+  name = "hashicorp/vault:1.12.2"
+}
+
+resource "docker_image" "vault-k8s" {
+  name = "hashicorp/vault-k8s:1.1"
+}
+
+resource "docker_image" "aws-cli" {
+  name = "public.ecr.aws/aws-cli/aws-cli:latest"
+}
+
+resource "docker_tag" "vault" {
+  source_image = docker_image.vault.name
+  target_image = "${aws_ecr_repository.vault.repository_url}:latest"
+}
+
+resource "docker_tag" "vault-k8s" {
+  source_image = docker_image.vault-k8s.name
+  target_image = "${aws_ecr_repository.vault-k8s.repository_url}:latest"
+}
+
+resource "docker_tag" "aws-cli" {
+  source_image = docker_image.aws-cli.name
+  target_image = "${aws_ecr_repository.cli.repository_url}:latest"
+}
+
+resource "docker_registry_image" "vault" {
+  name = docker_tag.vault.target_image
+
+  provider = docker.vault_ecr
+
+}
+
+resource "docker_registry_image" "vault-k8s" {
+  name     = docker_tag.vault-k8s.target_image
+  provider = docker.vault_k8s_ecr
+
+
+}
+
+resource "docker_registry_image" "aws-cli" {
+  name     = docker_tag.aws-cli.target_image
+  provider = docker.aws_cli_ecr
+
+
+}
+
+
+#### Random string generator ####
+resource "random_string" "random_string" {
+  length           = 8
+  special          = true
+  upper            = false
+  override_special = "-"
 }
