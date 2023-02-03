@@ -1,8 +1,29 @@
-#!/usr/bin/bash
+
+#!/bin/bash
 source ~/.bash_profile
 
 export VAULT_NS="vault"
 export VAULT_ROLE="vault-role-${RANDOM_STRING}"
+
+# Get the random string
+export RANDOM_STRING=$(cd ../.. && terraform output | grep "random_string" | awk '{print $3;}' | tr -d \")
+
+# Get the name of the cluster
+export EKS_CLUSTER_NAME=$(cd ../.. && terraform output | grep "eks_cluster_name" | awk '{print $3;}' | tr -d \")
+
+# Get IRSA Role Arn
+export VAULT_IRSA=$(cd ../.. && terraform output | grep "vpc_cni_irsa" | awk '{print $3;}' | tr -d \")
+
+# Get URI for Vaultk8s
+export REPO_URI_VAULT=$(cd ../.. && terraform output | grep "vault_ecr_uri" | awk '{print $3;}' | tr -d \")
+export REPO_URI_VAULTK8S=$(cd ../.. && terraform output | grep "vault_k8s_ecr_uri" | awk '{print $3;}' | tr -d \")
+
+# Get Region
+export AWS_REGION=$(cd ../.. && terraform output | grep region | awk '{print $3;}' | tr -d \")
+
+echo "Updating Kubeconfig with cluster details"
+aws eks update-kubeconfig --name dynamic-policy-saas-cluster --region ${AWS_REGION}
+
 
 echo "Creating Vault Role in IAM"
 export VAULT_ROLE_ARN=$(
@@ -59,6 +80,7 @@ helm repo update
 VAULT_REPO_NAME=${EKS_CLUSTER_NAME}-repo-${RANDOM_STRING}-vault
 VAULT_IMAGE_TAG=$(
 aws ecr describe-images \
+    --region ${AWS_REGION} \
     --repository-name ${VAULT_REPO_NAME} \
     --query 'imageDetails[?imageTags[0]==`latest`].imageDigest' \
     --output text | awk -F 'sha256:' '{print $2}'
@@ -67,6 +89,7 @@ aws ecr describe-images \
 VAULTK8S_REPO_NAME=${EKS_CLUSTER_NAME}-repo-${RANDOM_STRING}-vault-k8s
 VAULTK8S_IMAGE_TAG=$(
 aws ecr describe-images \
+    --region ${AWS_REGION} \
     --repository-name ${VAULTK8S_REPO_NAME} \
     --query 'imageDetails[?imageTags[0]==`latest`].imageDigest' \
     --output text | awk -F 'sha256:' '{print $2}'

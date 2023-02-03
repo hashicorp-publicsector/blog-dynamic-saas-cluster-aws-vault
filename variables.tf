@@ -27,8 +27,8 @@ variable "eks_data" {
     version          = string
     ami_type_default = string
     instance_types   = list(string)
-    volume_details   = map(number)
-    volume_type     = string
+    volume_size      = string
+    volume_type      = string
     min_size         = number
     max_size         = number
     desired_size     = number
@@ -51,21 +51,21 @@ variable "aws_cli_image" {
 
 variable "cloud9_subnet_id" {
   description = "Subnet ID of Cloud9 Subnet"
-  type = string
-  
+  type        = string
+
 }
 
 variable "cloud9_vpc_id" {
   description = "VPC ID of Cloud9 Subnet"
-  type = string
+  type        = string
 }
 
 #### DynamoDB Table Items ####
 variable "ddb_items" {
   description = "Items to add to DDB table"
   type = map(object({
-    shard_id = string
-    product_id = string
+    shard_id     = string
+    product_id   = string
     product_name = string
   }))
 }

@@ -11,7 +11,21 @@ data "aws_route_table" "cloud9_rtb" {
   vpc_id = var.cloud9_vpc_id
 }
 
+data "aws_iam_policy_document" "s3_access_policy" {
+  statement {
+    effect  = "Allow"
+    actions = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = [
+      "${aws_s3_bucket.vault_s3_bucket.arn}/*"
+    ]
+  }
 
+  statement {
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = ["${aws_s3_bucket.vault_s3_bucket.arn}"]
+  }
+}
 
 data "aws_iam_policy_document" "s3_bucket_policy" {
   statement {
@@ -201,21 +215,23 @@ module "vpc_cni_irsa" {
 
 
 resource "aws_route" "vpc_to_peer" {
-  count = "${length(module.vpc.private_route_table_ids)}"
-  route_table_id = "${element(module.vpc.private_route_table_ids, count.index)}"
-  destination_cidr_block = data.aws_vpc.cloud9_vpc.cidr_block
+  count                     = length(module.vpc.private_route_table_ids)
+  route_table_id            = element(module.vpc.private_route_table_ids, count.index)
+  destination_cidr_block    = data.aws_vpc.cloud9_vpc.cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
 }
 
 resource "aws_route" "peer_to_vpc" {
-  route_table_id = data.aws_route_table.cloud9_rtb.id
-  destination_cidr_block = module.vpc.vpc_cidr_block
+  route_table_id            = data.aws_route_table.cloud9_rtb.id
+  destination_cidr_block    = module.vpc.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
 }
 
 resource "aws_vpc_peering_connection" "vpc_peering" {
-  peer_vpc_id   = var.cloud9_vpc_id
-  vpc_id        = module.vpc.vpc_id
+
+  peer_vpc_id = var.cloud9_vpc_id
+  vpc_id      = module.vpc.vpc_id
+
 
   auto_accept = true
   accepter {
@@ -265,65 +281,96 @@ module "eks" {
       most_recent              = true
       service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
     }
-  }
-  
-  cluster_security_group_additional_rules = {
-    ingress_source_cloud9_cidr = {
-      description              = "Ingress from Cloud9"
-      protocol                 = "tcp"
-      from_port                = 443
-      to_port                  = 443
-      type                     = "ingress"
-      cidr_blocks                = [data.aws_vpc.cloud9_vpc.cidr_block]
+    aws-ebs-csi-driver = {
+      most_recent = true
     }
   }
-  
+
+  cluster_security_group_additional_rules = {
+    ingress_source_cloud9_cidr = {
+      description = "Ingress from Cloud9"
+      protocol    = "tcp"
+      from_port   = 443
+      to_port     = 443
+      type        = "ingress"
+      cidr_blocks = [data.aws_vpc.cloud9_vpc.cidr_block]
+    }
+  }
+
+
   eks_managed_node_groups = {
+
     default_node_group = {
-      use_custom_launch_template = false
+      name            = "managed_node_group"
+      use_name_prefix = true
+
+      subnet_ids = module.vpc.private_subnets
 
       min_size     = var.eks_data.min_size
       max_size     = var.eks_data.max_size
       desired_size = var.eks_data.desired_size
 
+      instance_types = var.eks_data.instance_types
+
+
       update_config = {
-        max_unavailable = 1
+        max_unavailable_percentage = 1
       }
 
-      #### Remote Access (Troubleshooting Nodes) ####
-      #### TODO: REMOVE ME ####
-      remote_access = {
-        ec2_ssh_key               = module.key_pair.key_pair_name
-        source_security_group_ids = [aws_security_group.remote_access.id]
-      }
-      
-      description       = "EKS managed node group"
-      ebs_optimized     = true
-      enable_monitoring = true
+
+      description = "EKS managed node group launch template"
+
+      ebs_optimized           = true
+      disable_api_termination = false
+      enable_monitoring       = true
+
+      #     #### Remote Access (Troubleshooting Nodes) ####
+      #     #### TODO: REMOVE ME ####
+      #     remote_access = {
+      #       ec2_ssh_key               = module.key_pair.key_pair_name
+      #       source_security_group_ids = [aws_security_group.remote_access.id]
+      #     }
+
+
       block_device_mappings = {
         xvda = {
           device_name = "/dev/xvda"
           ebs = {
-            volume_size           = var.eks_data.volume_details.size
+
+            volume_size           = var.eks_data.volume_size
             volume_type           = var.eks_data.volume_type
-            iops                  = var.eks_data.volume_details.iops
-            throughput            = var.eks_data.volume_details.throughput
+
             encrypted             = true
-            kms_key_id            = module.kms_key.key_id
+            kms_key_id            = module.kms_key.key_arn
             delete_on_termination = true
           }
         }
       }
-    }
-  }
 
-  create_iam_role          = true
-  iam_role_name            = "${var.tag_prefix}-nodes"
-  iam_role_use_name_prefix = false
-  iam_role_description     = "EKS managed node group role"
-  iam_role_additional_policies = {
-    AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      create_iam_role          = true
+      iam_role_name            = "${var.tag_prefix}-nodes"
+      iam_role_use_name_prefix = false
+      iam_role_description     = "EKS managed node group role"
+      iam_role_additional_policies = {
+        AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        AmazonSSMManagedInstanceCore       = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        AmazonEBSCSIDriverPolicy           = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      }
+
+    }
+
+
+    #   default_node_group = {
+    #     use_custom_launch_template = false
+
+    #     min_size     = var.eks_data.min_size
+    #     max_size     = var.eks_data.max_size
+    #     desired_size = var.eks_data.desired_size
+
+    #     update_config = {
+    #       max_unavailable = 1
+    #     }
+
   }
 }
 
@@ -338,8 +385,13 @@ module "kms_key" {
     data.aws_caller_identity.current.arn
   ]
 
+  key_users = [
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+
+  ]
   key_service_users = [
-    module.eks.cluster_iam_role_arn
+    module.eks.cluster_iam_role_arn,
+    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
   ]
 
   aliases = ["eks/${var.tag_prefix}"]
@@ -378,6 +430,65 @@ resource "aws_security_group" "vpc_eks_node_to_cluster" {
   }
 }
 
+
+resource "aws_iam_role" "s3_access_role" {
+  name = "${var.tag_prefix}-s3-access-role-${random_string.random_string.id}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          "Federated" : module.eks.oidc_provider_arn
+        }
+        Condition = {
+          "StringLike" = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:tenant*:tenant*-sa",
+            "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
+          }
+        },
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "s3_access_policy" {
+  name        = "${var.tag_prefix}-s3-access-policy"
+  path        = "/"
+  description = "s3 access policy for eks cluster"
+  policy      = data.aws_iam_policy_document.s3_access_policy.json
+}
+
+resource "aws_iam_role_policy_attachment" "s3_access_role" {
+  role       = aws_iam_role.s3_access_role.name
+  policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+resource "aws_iam_role" "vault-sa-role" {
+  name = "${var.tag_prefix}-vault-sa-role-${random_string.random_string.id}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          "Federated" : module.eks.oidc_provider_arn
+        }
+        Condition = {
+          "StringLike" = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:vault:vault-sa",
+            "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
+          }
+        },
+      }
+    ]
+  })
+}
+
 #### Dynamo DB Configuration ####
 resource "aws_dynamodb_table" "product_table" {
   attribute {
@@ -411,8 +522,8 @@ resource "aws_dynamodb_table_item" "insert_items" {
   hash_key   = aws_dynamodb_table.product_table.hash_key
   range_key  = aws_dynamodb_table.product_table.range_key
   item = jsonencode({
-    ShardID = { S = each.value.shard_id }
-    ProductID = { S = each.value.product_id }
+    ShardID     = { S = each.value.shard_id }
+    ProductID   = { S = each.value.product_id }
     ProductName = { S = each.value.product_name }
   })
 }
@@ -544,27 +655,28 @@ resource "aws_ecr_repository" "vault_k8s" {
 }
 
 module "push_vault_image_ecr" {
-  source = "./container"
-  image_name = var.vault_image
-  region = var.region
+  source             = "./container"
+  image_name         = var.vault_image
+  region             = var.region
   ecr_repository_url = aws_ecr_repository.vault.repository_url
-  ecr_registry_id = aws_ecr_repository.vault.registry_id
+  ecr_registry_id    = aws_ecr_repository.vault.registry_id
 }
 
 module "push_vault_k8s_image_ecr" {
-  source = "./container"
-  image_name = var.vault_k8s_image
-  region = var.region
+  source             = "./container"
+  image_name         = var.vault_k8s_image
+  region             = var.region
   ecr_repository_url = aws_ecr_repository.vault_k8s.repository_url
-  ecr_registry_id = aws_ecr_repository.vault_k8s.registry_id
+  ecr_registry_id    = aws_ecr_repository.vault_k8s.registry_id
 }
 
 module "push_aws_cli_image_ecr" {
-  source = "./container"
-  image_name = var.aws_cli_image
-  region = var.region
+  source             = "./container"
+  image_name         = var.aws_cli_image
+  region             = var.region
   ecr_repository_url = aws_ecr_repository.aws_cli.repository_url
-  ecr_registry_id = aws_ecr_repository.aws_cli.registry_id
+  ecr_registry_id    = aws_ecr_repository.aws_cli.registry_id
+
 }
 
 #### Random string generator ####
@@ -577,33 +689,34 @@ resource "random_string" "random_string" {
 
 #### Remote Access (Troubleshooting Nodes) ####
 #### TODO: REMOVE ME ####
-module "key_pair" {
-  source  = "terraform-aws-modules/key-pair/aws"
-  version = "~> 2.0"
+# module "key_pair" {
+#   source  = "terraform-aws-modules/key-pair/aws"
+#   version = "~> 2.0"
 
-  key_name_prefix    = var.tag_prefix
-  create_private_key = true
+#   key_name_prefix    = var.tag_prefix
+#   create_private_key = true
 
-}
+# }
 
-resource "aws_security_group" "remote_access" {
-  name_prefix = "${var.tag_prefix}-remote-access"
-  description = "Allow remote SSH access"
-  vpc_id      = module.vpc.vpc_id
+# resource "aws_security_group" "remote_access" {
+#   name_prefix = "${var.tag_prefix}-remote-access"
+#   description = "Allow remote SSH access"
+#   vpc_id      = module.vpc.vpc_id
 
-  ingress {
-    description = "SSH access"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [data.aws_vpc.cloud9_vpc.cidr_block]
-  }
+#   ingress {
+#     description = "SSH access"
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = [data.aws_vpc.cloud9_vpc.cidr_block]
+#   }
 
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-}
+#   egress {
+#     from_port        = 0
+#     to_port          = 0
+#     protocol         = "-1"
+#     cidr_blocks      = ["0.0.0.0/0"]
+#     ipv6_cidr_blocks = ["::/0"]
+#   }
+# }
+
