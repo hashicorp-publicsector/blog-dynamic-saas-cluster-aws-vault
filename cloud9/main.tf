@@ -36,6 +36,7 @@ resource "random_string" "random_string" {
   override_special = "-"
 }
 
+#### Cloud 9 Resources ####
 resource "aws_cloud9_environment_ec2" "saas-cloud9" {
   connection_type             = "CONNECT_SSM"
   name                        = "dynamic-saas-cluster-${random_string.random_string.id}"
