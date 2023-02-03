@@ -5,6 +5,8 @@ The code shared here is intended to provide a sample implementation of SaaS Data
 This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/products/terraform) and it's [providers](https://registry.terraform.io/providers/) to configure the architecture provided in the blog post [insert-valid-link](http://0)  
 
 TODO: refactor logical resource names to use snake case across codebase  
+TODO: Get terraform up past step8  
+
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 ## Requirements
@@ -20,10 +22,6 @@ TODO: refactor logical resource names to use snake case across codebase
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 4.51.0 |
-| <a name="provider_docker"></a> [docker](#provider\_docker) | 3.0.1 |
-| <a name="provider_docker.aws_cli_ecr"></a> [docker.aws\_cli\_ecr](#provider\_docker.aws\_cli\_ecr) | 3.0.1 |
-| <a name="provider_docker.vault_ecr"></a> [docker.vault\_ecr](#provider\_docker.vault\_ecr) | 3.0.1 |
-| <a name="provider_docker.vault_k8s_ecr"></a> [docker.vault\_k8s\_ecr](#provider\_docker.vault\_k8s\_ecr) | 3.0.1 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.4.3 |
 
 ## Modules
@@ -40,7 +38,7 @@ TODO: refactor logical resource names to use snake case across codebase
 
 | Name | Type |
 |------|------|
-| [aws_dynamodb_table.ProductTable](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
+| [aws_dynamodb_table.product_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_ecr_repository.cli](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
 | [aws_ecr_repository.vault](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
 | [aws_ecr_repository.vault-k8s](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
@@ -54,22 +52,11 @@ TODO: refactor logical resource names to use snake case across codebase
 | [aws_s3_bucket_public_access_block.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
+| [aws_security_group.vpc_eks_node_to_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.vpc_tls](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [docker_image.aws-cli](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/image) | resource |
-| [docker_image.vault](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/image) | resource |
-| [docker_image.vault-k8s](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/image) | resource |
-| [docker_registry_image.aws-cli](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/registry_image) | resource |
-| [docker_registry_image.vault](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/registry_image) | resource |
-| [docker_registry_image.vault-k8s](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/registry_image) | resource |
-| [docker_tag.aws-cli](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/tag) | resource |
-| [docker_tag.vault](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/tag) | resource |
-| [docker_tag.vault-k8s](https://registry.terraform.io/providers/kreuzwerker/docker/3.0.1/docs/resources/tag) | resource |
 | [random_string.random_string](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_canonical_user_id.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/canonical_user_id) | data source |
-| [aws_ecr_authorization_token.ecr-cli-token](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_authorization_token) | data source |
-| [aws_ecr_authorization_token.ecr-vault-k8s-token](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_authorization_token) | data source |
-| [aws_ecr_authorization_token.ecr-vault-token](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_authorization_token) | data source |
 | [aws_iam_policy_document.generic_endpoint_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.s3_bucket_logs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.s3_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
@@ -78,10 +65,13 @@ TODO: refactor logical resource names to use snake case across codebase
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_details   = map(string)<br>  })</pre> | <pre>{<br>  "ami_type_default": "AL2_x86_64",<br>  "instance_types": [<br>    "t3.medium",<br>    "t3a.medium"<br>  ],<br>  "version": "1.24",<br>  "volume_details": {<br>    "iops": "3000",<br>    "size": "80",<br>    "throughput": "150",<br>    "type": "gp3"<br>  }<br>}</pre> | no |
-| <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | `"us-east-2"` | no |
-| <a name="input_tag_prefix"></a> [tag\_prefix](#input\_tag\_prefix) | Prefix tag for VPCs | `string` | `"dynamic-policy-saas-cluster"` | no |
-| <a name="input_vpc_data"></a> [vpc\_data](#input\_vpc\_data) | Data required to be passed to VPC module | <pre>object({<br>    cidr                 = string<br>    public_subnet_cidrs  = list(string)<br>    private_subnet_cidrs = list(string)<br>    availability_zones   = list(string)<br>  })</pre> | <pre>{<br>  "availability_zones": [<br>    "us-east-2a",<br>    "us-east-2b"<br>  ],<br>  "cidr": "10.0.0.0/16",<br>  "private_subnet_cidrs": [<br>    "10.0.100.0/24",<br>    "10.0.101.0/24"<br>  ],<br>  "public_subnet_cidrs": [<br>    "10.0.0.0/24",<br>    "10.0.1.0/24"<br>  ]<br>}</pre> | no |
+| <a name="input_aws_cli_image"></a> [aws\_cli\_image](#input\_aws\_cli\_image) | Image name and tag for aws\_cli | `string` | n/a | yes |
+| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_details   = map(string)<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |
+| <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | n/a | yes |
+| <a name="input_tag_prefix"></a> [tag\_prefix](#input\_tag\_prefix) | Prefix tag for VPCs | `string` | n/a | yes |
+| <a name="input_vault_image"></a> [vault\_image](#input\_vault\_image) | Image name and tag for Vault | `string` | n/a | yes |
+| <a name="input_vault_k8s_image"></a> [vault\_k8s\_image](#input\_vault\_k8s\_image) | Image name and tag for Vault-K8S | `string` | n/a | yes |
+| <a name="input_vpc_data"></a> [vpc\_data](#input\_vpc\_data) | Data required to be passed to VPC module | <pre>object({<br>    cidr                 = string<br>    public_subnet_cidrs  = list(string)<br>    private_subnet_cidrs = list(string)<br>    availability_zones   = list(string)<br>  })</pre> | n/a | yes |
 
 ## Outputs
 

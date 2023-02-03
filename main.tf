@@ -1,38 +1,17 @@
-/*
-
-# This configuration is terraform code in development to showcase Dynamic Credential Brokering in a secure SaaS cluster.
-It is currently a WIP, and under active development
-
-
-TODO: refactor logical resource names to use snake case across codebase
-TODO: push containers to ECR
-
-*/
-
 #### Data Sources ####
 data "aws_caller_identity" "current" {}
 
 data "aws_canonical_user_id" "current" {}
 
-data "aws_iam_policy_document" "generic_endpoint_policy" {
-  statement {
-    effect    = "Deny"
-    actions   = ["*"]
-    resources = ["*"]
-
-    principals {
-      type        = "*"
-      identifiers = ["*"]
-    }
-
-    condition {
-      test     = "StringNotEquals"
-      variable = "aws:SourceVpc"
-
-      values = [module.vpc.vpc_id]
-    }
-  }
+data "aws_vpc" "cloud9_vpc" {
+  id = var.cloud9_vpc_id
 }
+
+data "aws_route_table" "cloud9_rtb" {
+  vpc_id = var.cloud9_vpc_id
+}
+
+
 
 data "aws_iam_policy_document" "s3_bucket_policy" {
   statement {
@@ -108,17 +87,9 @@ module "vpc" {
 
   azs             = var.vpc_data.availability_zones
   private_subnets = var.vpc_data.private_subnet_cidrs
-  public_subnets  = var.vpc_data.public_subnet_cidrs
 
-  enable_nat_gateway     = true
-  single_nat_gateway     = true
-  one_nat_gateway_per_az = false
-  enable_dns_hostnames   = true
-  enable_dns_support     = true
-
-  nat_gateway_tags = {
-    "Name" = "${var.tag_prefix}/natgw"
-  }
+  enable_dns_hostnames = true
+  enable_dns_support   = true
 
   igw_tags = {
     "Name" = "${var.tag_prefix}/igw"
@@ -134,7 +105,6 @@ module "vpc" {
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
   }
-
 }
 
 module "vpc_endpoints" {
@@ -148,13 +118,11 @@ module "vpc_endpoints" {
       service_type    = "Gateway"
       tags            = { Name = "${var.tag_prefix}-s3-vpce" }
       route_table_ids = flatten(module.vpc.private_route_table_ids)
-      policy          = data.aws_iam_policy_document.generic_endpoint_policy.json
     },
     dynamodb = {
       service         = "dynamodb"
       service_type    = "Gateway"
       route_table_ids = flatten(module.vpc.private_route_table_ids)
-      policy          = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags            = { Name = "${var.tag_prefix}-ddb-vpce" }
     },
     ec2 = {
@@ -162,15 +130,21 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-ec2-vpce" }
     },
+    eks = {
+      service             = "eks"
+      private_dns_enabled = true
+      subnet_ids          = module.vpc.private_subnets
+      security_group_ids  = [aws_security_group.vpc_eks_node_to_cluster.id]
+      tags                = { Name = "${var.tag_prefix}-eks-vpce" }
+    },
+
     sts = {
       service             = "sts"
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-sts-vpce" }
 
 
@@ -180,7 +154,6 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-logs-vpce" }
     },
 
@@ -189,7 +162,6 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-ecr-api-vpce" }
 
     },
@@ -198,7 +170,6 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-ecr-dkr-vpce" }
     },
     kms = {
@@ -206,7 +177,6 @@ module "vpc_endpoints" {
       private_dns_enabled = true
       subnet_ids          = module.vpc.private_subnets
       security_group_ids  = [aws_security_group.vpc_tls.id]
-      policy              = data.aws_iam_policy_document.generic_endpoint_policy.json
       tags                = { Name = "${var.tag_prefix}-kms-vpce" }
     },
   }
@@ -229,6 +199,35 @@ module "vpc_cni_irsa" {
 }
 
 
+
+resource "aws_route" "vpc_to_peer" {
+  count = "${length(module.vpc.private_route_table_ids)}"
+  route_table_id = "${element(module.vpc.private_route_table_ids, count.index)}"
+  destination_cidr_block = data.aws_vpc.cloud9_vpc.cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
+}
+
+resource "aws_route" "peer_to_vpc" {
+  route_table_id = data.aws_route_table.cloud9_rtb.id
+  destination_cidr_block = module.vpc.vpc_cidr_block
+  vpc_peering_connection_id = aws_vpc_peering_connection.vpc_peering.id
+}
+
+resource "aws_vpc_peering_connection" "vpc_peering" {
+  peer_vpc_id   = var.cloud9_vpc_id
+  vpc_id        = module.vpc.vpc_id
+
+  auto_accept = true
+  accepter {
+    allow_remote_vpc_dns_resolution = true
+  }
+
+  requester {
+    allow_remote_vpc_dns_resolution = true
+  }
+}
+
+
 #### EKS Configuration ####
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -236,7 +235,7 @@ module "eks" {
 
   cluster_name                   = var.tag_prefix
   cluster_version                = var.eks_data.version
-  cluster_endpoint_public_access = true
+  cluster_endpoint_public_access = false
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -267,18 +266,37 @@ module "eks" {
       service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
     }
   }
+  
+  cluster_security_group_additional_rules = {
+    ingress_source_cloud9_cidr = {
+      description              = "Ingress from Cloud9"
+      protocol                 = "tcp"
+      from_port                = 443
+      to_port                  = 443
+      type                     = "ingress"
+      cidr_blocks                = [data.aws_vpc.cloud9_vpc.cidr_block]
+    }
+  }
+  
   eks_managed_node_groups = {
     default_node_group = {
       use_custom_launch_template = false
 
-      min_size     = 2
-      max_size     = 2
-      desired_size = 2
+      min_size     = var.eks_data.min_size
+      max_size     = var.eks_data.max_size
+      desired_size = var.eks_data.desired_size
 
       update_config = {
         max_unavailable = 1
       }
 
+      #### Remote Access (Troubleshooting Nodes) ####
+      #### TODO: REMOVE ME ####
+      remote_access = {
+        ec2_ssh_key               = module.key_pair.key_pair_name
+        source_security_group_ids = [aws_security_group.remote_access.id]
+      }
+      
       description       = "EKS managed node group"
       ebs_optimized     = true
       enable_monitoring = true
@@ -287,7 +305,7 @@ module "eks" {
           device_name = "/dev/xvda"
           ebs = {
             volume_size           = var.eks_data.volume_details.size
-            volume_type           = var.eks_data.volume_details.type
+            volume_type           = var.eks_data.volume_type
             iops                  = var.eks_data.volume_details.iops
             throughput            = var.eks_data.volume_details.throughput
             encrypted             = true
@@ -305,6 +323,7 @@ module "eks" {
   iam_role_description     = "EKS managed node group role"
   iam_role_additional_policies = {
     AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
 }
 
@@ -345,8 +364,22 @@ resource "aws_security_group" "vpc_tls" {
   }
 }
 
+resource "aws_security_group" "vpc_eks_node_to_cluster" {
+  name_prefix = "${var.tag_prefix}-eks-vpce"
+  description = "Allow all traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "Allow all traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [module.vpc.vpc_cidr_block]
+  }
+}
+
 #### Dynamo DB Configuration ####
-resource "aws_dynamodb_table" "ProductTable" {
+resource "aws_dynamodb_table" "product_table" {
   attribute {
     name = "ProductID"
     type = "S"
@@ -370,6 +403,18 @@ resource "aws_dynamodb_table" "ProductTable" {
   stream_enabled = "false"
   table_class    = "STANDARD"
   write_capacity = "5"
+}
+
+resource "aws_dynamodb_table_item" "insert_items" {
+  for_each   = var.ddb_items
+  table_name = aws_dynamodb_table.product_table.name
+  hash_key   = aws_dynamodb_table.product_table.hash_key
+  range_key  = aws_dynamodb_table.product_table.range_key
+  item = jsonencode({
+    ShardID = { S = each.value.shard_id }
+    ProductID = { S = each.value.product_id }
+    ProductName = { S = each.value.product_name }
+  })
 }
 
 #### S3 Configuration ####
@@ -462,7 +507,7 @@ resource "aws_s3_bucket_acl" "access_logs_bucket" {
 
 
 #### ECR Configuration
-resource "aws_ecr_repository" "cli" {
+resource "aws_ecr_repository" "aws_cli" {
   name = "${var.tag_prefix}-repo-${random_string.random_string.id}-aws-cli"
 
   image_scanning_configuration {
@@ -472,10 +517,6 @@ resource "aws_ecr_repository" "cli" {
   encryption_configuration {
     encryption_type = "KMS"
   }
-}
-
-data "aws_ecr_authorization_token" "ecr-cli-token" {
-  registry_id = aws_ecr_repository.cli.registry_id
 }
 
 resource "aws_ecr_repository" "vault" {
@@ -490,11 +531,7 @@ resource "aws_ecr_repository" "vault" {
   }
 }
 
-data "aws_ecr_authorization_token" "ecr-vault-token" {
-  registry_id = aws_ecr_repository.vault.registry_id
-}
-
-resource "aws_ecr_repository" "vault-k8s" {
+resource "aws_ecr_repository" "vault_k8s" {
   name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
 
   image_scanning_configuration {
@@ -506,59 +543,29 @@ resource "aws_ecr_repository" "vault-k8s" {
   }
 }
 
-data "aws_ecr_authorization_token" "ecr-vault-k8s-token" {
-  registry_id = aws_ecr_repository.vault-k8s.registry_id
+module "push_vault_image_ecr" {
+  source = "./container"
+  image_name = var.vault_image
+  region = var.region
+  ecr_repository_url = aws_ecr_repository.vault.repository_url
+  ecr_registry_id = aws_ecr_repository.vault.registry_id
 }
 
-#### Secure Image Delivery to ECR ####
-resource "docker_image" "vault" {
-  name = "hashicorp/vault:1.12.2"
+module "push_vault_k8s_image_ecr" {
+  source = "./container"
+  image_name = var.vault_k8s_image
+  region = var.region
+  ecr_repository_url = aws_ecr_repository.vault_k8s.repository_url
+  ecr_registry_id = aws_ecr_repository.vault_k8s.registry_id
 }
 
-resource "docker_image" "vault-k8s" {
-  name = "hashicorp/vault-k8s:1.1"
+module "push_aws_cli_image_ecr" {
+  source = "./container"
+  image_name = var.aws_cli_image
+  region = var.region
+  ecr_repository_url = aws_ecr_repository.aws_cli.repository_url
+  ecr_registry_id = aws_ecr_repository.aws_cli.registry_id
 }
-
-resource "docker_image" "aws-cli" {
-  name = "public.ecr.aws/aws-cli/aws-cli:latest"
-}
-
-resource "docker_tag" "vault" {
-  source_image = docker_image.vault.name
-  target_image = "${aws_ecr_repository.vault.repository_url}:latest"
-}
-
-resource "docker_tag" "vault-k8s" {
-  source_image = docker_image.vault-k8s.name
-  target_image = "${aws_ecr_repository.vault-k8s.repository_url}:latest"
-}
-
-resource "docker_tag" "aws-cli" {
-  source_image = docker_image.aws-cli.name
-  target_image = "${aws_ecr_repository.cli.repository_url}:latest"
-}
-
-resource "docker_registry_image" "vault" {
-  name = docker_tag.vault.target_image
-
-  provider = docker.vault_ecr
-
-}
-
-resource "docker_registry_image" "vault-k8s" {
-  name     = docker_tag.vault-k8s.target_image
-  provider = docker.vault_k8s_ecr
-
-
-}
-
-resource "docker_registry_image" "aws-cli" {
-  name     = docker_tag.aws-cli.target_image
-  provider = docker.aws_cli_ecr
-
-
-}
-
 
 #### Random string generator ####
 resource "random_string" "random_string" {
@@ -566,4 +573,37 @@ resource "random_string" "random_string" {
   special          = true
   upper            = false
   override_special = "-"
+}
+
+#### Remote Access (Troubleshooting Nodes) ####
+#### TODO: REMOVE ME ####
+module "key_pair" {
+  source  = "terraform-aws-modules/key-pair/aws"
+  version = "~> 2.0"
+
+  key_name_prefix    = var.tag_prefix
+  create_private_key = true
+
+}
+
+resource "aws_security_group" "remote_access" {
+  name_prefix = "${var.tag_prefix}-remote-access"
+  description = "Allow remote SSH access"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description = "SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.cloud9_vpc.cidr_block]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
 }

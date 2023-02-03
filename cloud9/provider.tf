@@ -1,9 +1,3 @@
-provider "aws" {}
-
-terraform {
-	required_providers {
-		aws = {
-	    version = "~> 4.51.0"
-		}
-  }
+provider "aws" {
+  region = var.region
 }

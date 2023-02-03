@@ -2,33 +2,27 @@ provider "aws" {
   region = var.region
 }
 
-provider "docker" {
-  host = "unix:///var/run/docker.sock"
-}
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
 
-provider "docker" {
-  alias = "vault_ecr"
-  registry_auth {
-    address  = data.aws_ecr_authorization_token.ecr-vault-token.proxy_endpoint
-    username = data.aws_ecr_authorization_token.ecr-vault-token.user_name
-    password = data.aws_ecr_authorization_token.ecr-vault-token.password
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    # This requires the awscli to be installed locally where Terraform is executed
+    args = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
   }
 }
 
-provider "docker" {
-  alias = "vault_k8s_ecr"
-  registry_auth {
-    address  = data.aws_ecr_authorization_token.ecr-vault-k8s-token.proxy_endpoint
-    username = data.aws_ecr_authorization_token.ecr-vault-k8s-token.user_name
-    password = data.aws_ecr_authorization_token.ecr-vault-k8s-token.password
-  }
-}
-
-provider "docker" {
-  alias = "aws_cli_ecr"
-  registry_auth {
-    address  = data.aws_ecr_authorization_token.ecr-cli-token.proxy_endpoint
-    username = data.aws_ecr_authorization_token.ecr-cli-token.user_name
-    password = data.aws_ecr_authorization_token.ecr-cli-token.password
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      # This requires the awscli to be installed locally where Terraform is executed
+      args = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+    }
   }
 }

@@ -40,5 +40,9 @@ secrets.tfvars
 .editorconfig
 .pre-commit-config.yaml
 
-# End of https://www.toptal.com/developers/gitignore/api/terraform
+# Ignore .envrc files
+.envrc
+
+# Ignores extraneous files
 /archived/
+/cloud9/terraform.tfstate
