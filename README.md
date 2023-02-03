@@ -30,6 +30,9 @@ TODO: Get terraform up past step8
 |------|--------|---------|
 | <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | 19.6.0 |
 | <a name="module_kms_key"></a> [kms\_key](#module\_kms\_key) | terraform-aws-modules/kms/aws | ~> 1.1 |
+| <a name="module_push_aws_cli_image_ecr"></a> [push\_aws\_cli\_image\_ecr](#module\_push\_aws\_cli\_image\_ecr) | ./container | n/a |
+| <a name="module_push_vault_image_ecr"></a> [push\_vault\_image\_ecr](#module\_push\_vault\_image\_ecr) | ./container | n/a |
+| <a name="module_push_vault_k8s_image_ecr"></a> [push\_vault\_k8s\_image\_ecr](#module\_push\_vault\_k8s\_image\_ecr) | ./container | n/a |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 3.19.0 |
 | <a name="module_vpc_cni_irsa"></a> [vpc\_cni\_irsa](#module\_vpc\_cni\_irsa) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks | ~> 5.0 |
 | <a name="module_vpc_endpoints"></a> [vpc\_endpoints](#module\_vpc\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | n/a |
@@ -39,9 +42,16 @@ TODO: Get terraform up past step8
 | Name | Type |
 |------|------|
 | [aws_dynamodb_table.product_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
-| [aws_ecr_repository.cli](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
+| [aws_dynamodb_table_item.insert_items](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_ecr_repository.aws_cli](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
 | [aws_ecr_repository.vault](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
-| [aws_ecr_repository.vault-k8s](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
+| [aws_ecr_repository.vault_k8s](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecr_repository) | resource |
+| [aws_iam_policy.s3_access_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_role.s3_access_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.vault-sa-role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.s3_access_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_route.peer_to_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
+| [aws_route.vpc_to_peer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
 | [aws_s3_bucket.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket_acl.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl) | resource |
@@ -54,19 +64,25 @@ TODO: Get terraform up past step8
 | [aws_s3_bucket_server_side_encryption_configuration.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
 | [aws_security_group.vpc_eks_node_to_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.vpc_tls](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_vpc_peering_connection.vpc_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_peering_connection) | resource |
 | [random_string.random_string](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_canonical_user_id.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/canonical_user_id) | data source |
-| [aws_iam_policy_document.generic_endpoint_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.s3_access_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.s3_bucket_logs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.s3_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_route_table.cloud9_rtb](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route_table) | data source |
+| [aws_vpc.cloud9_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/vpc) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_cli_image"></a> [aws\_cli\_image](#input\_aws\_cli\_image) | Image name and tag for aws\_cli | `string` | n/a | yes |
-| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_details   = map(string)<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |
+| <a name="input_cloud9_subnet_id"></a> [cloud9\_subnet\_id](#input\_cloud9\_subnet\_id) | Subnet ID of Cloud9 Subnet | `string` | n/a | yes |
+| <a name="input_cloud9_vpc_id"></a> [cloud9\_vpc\_id](#input\_cloud9\_vpc\_id) | VPC ID of Cloud9 Subnet | `string` | n/a | yes |
+| <a name="input_ddb_items"></a> [ddb\_items](#input\_ddb\_items) | Items to add to DDB table | <pre>map(object({<br>    shard_id     = string<br>    product_id   = string<br>    product_name = string<br>  }))</pre> | n/a | yes |
+| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_size      = string<br>    volume_type      = string<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | n/a | yes |
 | <a name="input_tag_prefix"></a> [tag\_prefix](#input\_tag\_prefix) | Prefix tag for VPCs | `string` | n/a | yes |
 | <a name="input_vault_image"></a> [vault\_image](#input\_vault\_image) | Image name and tag for Vault | `string` | n/a | yes |
@@ -75,5 +91,12 @@ TODO: Get terraform up past step8
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_eks_cluster_name"></a> [eks\_cluster\_name](#output\_eks\_cluster\_name) | n/a |
+| <a name="output_random_string"></a> [random\_string](#output\_random\_string) | n/a |
+| <a name="output_region"></a> [region](#output\_region) | n/a |
+| <a name="output_vault_ecr_uri"></a> [vault\_ecr\_uri](#output\_vault\_ecr\_uri) | n/a |
+| <a name="output_vault_k8s_ecr_uri"></a> [vault\_k8s\_ecr\_uri](#output\_vault\_k8s\_ecr\_uri) | n/a |
+| <a name="output_vpc_cni_irsa"></a> [vpc\_cni\_irsa](#output\_vpc\_cni\_irsa) | n/a |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

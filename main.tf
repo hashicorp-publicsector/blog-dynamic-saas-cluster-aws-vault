@@ -91,6 +91,7 @@ data "aws_iam_policy_document" "s3_bucket_logs_policy" {
   }
 }
 
+
 #### VPC Configuration ####
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -337,8 +338,8 @@ module "eks" {
           device_name = "/dev/xvda"
           ebs = {
 
-            volume_size           = var.eks_data.volume_size
-            volume_type           = var.eks_data.volume_type
+            volume_size = var.eks_data.volume_size
+            volume_type = var.eks_data.volume_type
 
             encrypted             = true
             kms_key_id            = module.kms_key.key_arn
@@ -719,4 +720,3 @@ resource "random_string" "random_string" {
 #     ipv6_cidr_blocks = ["::/0"]
 #   }
 # }
-
