@@ -7,9 +7,253 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 TODO: refactor logical resource names to use snake case across codebase  
 TODO: Get terraform up past step8  
 
+## Prerequisites
+<details>
+<summary>click to expand</summary>
+
+1. Terraform OSS (it's free!)
+1. git CLI (if using Terraform OSS)
+
+
+</details>
+
+## Usage
+<details>
+<summary>click to expand</summary>
+
+### Terraform OSS
+1. Clone the git repository and navigate to the cloud9 directory:
+    ```sh
+    git clone [url]
+    cd [repo-name]/cloud9/
+    ```
+
+
+2. Run these Terraform commands:
+    ```hcl
+    terraform init [press enter]
+    terraform plan [press enter]
+    terraform apply --auto-approve [press enter]
+    ```
+
+3. Once complete, Terraform will output the URL for Cloud9:
+    ```hcl
+    https://us-east-2.console.aws.amazon.com/cloud9control/home?region=us-east-2/
+    ```
+
+4. Create EC2 Instance Role via the AWS Console
+
+    - Follow [this deep link](https://console.aws.amazon.com/iam/home#/roles$new?step=review&commonUseCase=EC2%2BEC2&selectedUseCase=EC2&policies=arn:aws:iam::aws:policy%2FAdministratorAccess) to create an IAM role with Administrator access.
+    - Confirm that AWS service and EC2 are selected, then click Next to view permissions.
+    - Confirm that AdministratorAccess is checked, then click Next: Tags to assign tags.
+    - Take the defaults, and click Next: Review to review.
+    - Enter dynamic-policy-ref-arch-admin for the Name, and click Create role.
+
+5. Remove managed credentials and attach EC2 Instance Role to Cloud9 Instance
+
+    - Click the gear in the upper right-hand corner of the IDE which opens settings. Click the `AWS Settings` on the left and under `Credentials` slide the button to the left for `AWS managed temporary credentials`. The button should be greyed out when done, indicating it's off.
+    - Click the round button with an alphabet in the upper right-hand corner of the IDE and click `Manage EC2 Instance`. This will take you to the EC2 portion of the AWS Console
+    - Right-click the EC2 instance and in the fly-out menu, click `Security` -> `Modify IAM Role`
+    - Choose the Role you created in the step above. It should be titled `dynamic-policy-ref-arch-admin` and click  `Save`.
+
+6. In the Cloud9 IDE, clone the repo and resume provisioning with Terraform:
+    - Click `Window` -> `New Terminal` and enter the following commands:
+    -   ```sh
+        cd [repo-name]/ [press enter]
+        ```
+    -   ```hcl
+        terraform init [press enter]
+        terraform plan [press enter]
+        terraform apply --auto-approve [press enter]
+        ```
+
+    We've now provisioned + configured the EKS cluster, DynamoDB Table, and all associated networking/security resources! Let's continue with the rest of the deployment.
+
+7. Install k8s dependencies:
+    - Click `Window` -> `New Terminal` and enter the following commands:
+    -   ```sh
+        cd [repo-name]/scripts/ [press enter]
+        chmod +x install-k8s-tools.sh
+        ./install-k8s-tools.sh
+        ```
+
+8. Install Vault:
+    - Click `Window` -> `New Terminal` and enter the following commands:
+    -   ```sh
+        cd [repo-name]/vault/ [press enter]
+        chmod +x deploy-vault.sh
+        ./deploy-vault.sh
+        ```
+
+9. Deploy Sample Silo Tenants:
+    - Click `Window` -> `New Terminal` and enter the following commands:
+    -   ```sh
+        cd [repo-name]/silo/ [press enter]
+        chmod +x deploy-siloed-tenants.sh
+        ./deploy-siloed-tenants.sh
+        ```
+
+10. Test Silo Tenant Deployments:
+    > :warning: Close the terminal window that you created the cluster in, and open a new terminal before starting this step otherwise you may get errors about your AWS_REGION not set.
+    * Open a **_NEW_** terminal window and `cd` back into `aws-saas-factory-data-isolation-using-hashicorp-vault-in-amazon-eks` and run the following script:
+
+    a. In the Cloud9 test editor, open [test-cases/shell-into-tenant-container.sh](./test-cases/shell-into-tenant-container.sh)
+    
+    b. Modify the value of environment variable APPLICATION_NS to "tenanta" or "tenantb"
+    
+    c. Select all the contents of test-cases/shell-into-tenant-container.sh
+    
+    d. Open a **_NEW_** terminal window
+    
+    e. Paste the contents of test-cases/shell-into-tenant-container.sh
+    
+    f. You would now be in a shell within the tenant-specific application (myapp) container
+    
+    g. In the Cloud9 test editor, open [test-cases/test-dynamodb-access.sh](./test-cases/test-dynamodb-access.sh)
+    
+    h. Modify the value of environment variable TENANT to "tenanta" or "tenantb", matching the APPLICATION_NS value set in step (b)
+    
+    i. Select all the contents of test-cases/test-dynamodb-access.sh
+    
+    j. Paste the contents into the shell that was started on the tenant-specific application container
+    
+    k. Data items will be pulled from the DynamoDB table Products only where the ShardID matches the tenant ID set by the environment variable AWS_PROFILE. AWS CLI uses the AWS credentials file to use the credentials for the tenant-specific profile.
+
+    l. Data items where the ShardID doesn't match the tenant ID will not be retrieved and the following error will be generated.
+    ```
+    An error occurred (AccessDeniedException) when calling the GetItem operation: User: arn:aws:sts::ACCOUNT_ID:federated-user/vault-xxxxxxxxxx-yyyyyyyyyyyyyyy is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:AWS_REGION:ACCOUNT_ID:table/Products_xxxxxxxx because no session policy allows the dynamodb:GetItem action
+    ```
+
+11. Deploy Sample Pooled Tenants
+    > :warning: Close the terminal window that you created the cluster in, and open a new terminal before starting this step otherwise you may get errors about your AWS_REGION not set.
+    * Open a **_NEW_** terminal window and `cd` back into `aws-saas-factory-data-isolation-using-hashicorp-vault-in-amazon-eks` and run the following script:
+
+    ```bash
+    cd pool
+    chmod +x deploy-pooled-tenants.sh
+    ./deploy-pooled-tenants.sh
+    ```
+
+    This [script](./pool/deploy-pooled-tenants.sh) creates the following, for each tenant (tenantc & tenantd):
+
+    a. A Vault role with tenant-scoped IAM session policy
+    
+    b. Vault policy that allows access to credentials for all sub-tenant (tenantc-* / tenantd-*)
+    
+    c. A Vault credentials endpoint
+    
+    d. AppRole for the Vault Agent bound to the tenant-specific Vault policy
+    
+    e. AppRole credentials (role_id / secret_id) for the Vault Agent sidecar
+
+    f. Kubernetes namespace for the tenant
+    
+    g. Kubernetes secret containing the Vault Agent's AppRole credentials
+    
+    h. Kubernetes configmap containing the Vault Agent configuration
+
+    i. Application pods
+
+
+12. Deploy Sample Pooled Sub-Tenants
+    > :warning: Close the terminal window that you created the cluster in, and open a new terminal before starting this step otherwise you may get errors about your AWS_REGION not set.
+    * Open a **_NEW_** terminal window and `cd` back into `aws-saas-factory-data-isolation-using-hashicorp-vault-in-amazon-eks` and run the following script:
+
+    ```bash
+    cd pool
+    chmod +x deploy-pool-sub-tenants.sh
+    ./deploy-pool-sub-tenants.sh
+    ```
+
+    This [script](./pool/deploy-pool-sub-tenants.sh) completes the following, for each tenant (tenantc & tenantd):
+
+    a. For each sub-tenant, creates a Vault role along with the sub-tenant-scoped IAM session policy
+    
+    b. For each sub-tenant, creates a Vault credentials endpoint
+    
+    c. Updates tenant-specific Vault Agent configmap with a template to generate sub-tenant credentials in the mapped secrets volume
+
+    d. Restarts the Vault Agent process with a kill -SIGHUP, for the process to re-read the configmap
+
+
+13. Test Pooled Tenant Deployments
+    > :warning: Close the terminal window that you created the cluster in, and open a new terminal before starting this step otherwise you may get errors about your AWS_REGION not set.
+    * Open a **_NEW_** terminal window and `cd` back into `aws-saas-factory-data-isolation-using-hashicorp-vault-in-amazon-eks` and run the following script:
+
+    a. In the Cloud9 test editor, open [test-cases/shell-into-tenant-container.sh](./test-cases/shell-into-tenant-container.sh)
+    
+    b. Modify the value of environment variable APPLICATION_NS to "tenantc" or "tenantd"
+    
+    c. Select all the contents of test-cases/shell-into-tenant-container.sh
+    
+    d. Open a **_NEW_** terminal window
+    
+    e. Paste the contents of test-cases/shell-into-tenant-container.sh
+    
+    f. You would now be in a shell within the sub-tenant-specific application (myapp) container
+    
+    g. In the Cloud9 test editor, open [test-cases/test-dynamodb-access.sh](./test-cases/test-dynamodb-access.sh)
+    
+    h. Modify the value of environment variable TENANT to "tenantc-1", "tenantc-2", "tenantd-1", or "tenantd-2", corresponding to the APPLICATION_NS value set in step (b)
+    
+    i. Select all the contents of test-cases/test-dynamodb-access.sh
+    
+    j. Paste the contents into the shell that was started on the sub-tenant-specific application container
+    
+    k. Data items will be pulled from the DynamoDB table Products only where the ShardID matches the sub-tenant ID set by the environment variable AWS_PROFILE. AWS CLI uses the AWS credentials file to use the credentials for the sub-tenant-specific profile.
+
+    l. Data items where the ShardID doesn't match the tenant ID will not be retrieved and the following error will be generated.
+    ```
+    An error occurred (AccessDeniedException) when calling the GetItem operation: User: arn:aws:sts::ACCOUNT_ID:federated-user/vault-xxxxxxxxxx-yyyyyyyyyyyyyyy is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:AWS_REGION:ACCOUNT_ID:table/Products_xxxxxxxx because no session policy allows the dynamodb:GetItem action
+    ```
+</details>
+
+## Cleanup
+<details>
+<summary>click to expand</summary>
+
+
+The deployed components can be cleaned up via the following procedure.
+
+### Cloud9 IDE
+
+1. Run the cleanup script via a new terminal window
+    - Click `Window` -> `New Terminal` and enter the following commands:
+    -   ```sh
+        cd [repo-name]/ [press enter]
+        chmod +x cleanup.sh
+        ./cleanup.sh
+        ```
+2. Destroy the infrastructure and resources created by Terraform
+    - In the same terminal window, run these commands:
+    -   ```hcl
+        terraform init [press enter]
+        terraform plan [press enter]
+        terraform destroy --auto-approve [press enter]
+        ```
+
+### Local Workstation
+1. On your local workstation, destroy the Cloud9 environment created by Terraform:
+    -   ```sh
+        cd [repo-name]/cloud9 [press enter]
+        ```
+    -   ```hcl
+        terraform init [press enter]
+        terraform plan [press enter]
+        terraform destroy --auto-approve [press enter]
+        ```
+</details>
+
+
+
+
+## Requirements
+<details>
+<summary>click to expand</summary>
+
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
-## Requirements
+
 
 | Name | Version |
 |------|---------|
@@ -100,3 +344,4 @@ TODO: Get terraform up past step8
 | <a name="output_vault_k8s_ecr_uri"></a> [vault\_k8s\_ecr\_uri](#output\_vault\_k8s\_ecr\_uri) | n/a |
 | <a name="output_vpc_cni_irsa"></a> [vpc\_cni\_irsa](#output\_vpc\_cni\_irsa) | n/a |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+</details>
