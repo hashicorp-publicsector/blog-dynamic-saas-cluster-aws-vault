@@ -1,0 +1,38 @@
+injector:
+  enabled: true
+  image:
+    repository: ${vault_injector_ecr_repo}
+    tag: ${vault_injector_ecr_image_tag}
+
+server:
+  image:
+    repository: ${vault_ecr_repo}
+    tag: ${vault_ecr_image_tag}
+    
+  extraEnvironmentVars: {
+    "AWS_STS_REGIONAL_ENDPOINTS": "regional"
+  }
+  
+  serviceAccount:
+    name: vault-sa
+    annotations: {
+      "eks.amazonaws.com/role-arn": ${vault_sa_role}
+    }
+    
+  standalone:
+    config: |
+      ui = true
+
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+
+      seal "awskms" {
+         region      = "${aws_region}"
+         kms_key_id  = "${kms_key_id}"
+      }

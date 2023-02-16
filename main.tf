@@ -3,6 +3,7 @@ data "aws_caller_identity" "current" {}
 
 data "aws_canonical_user_id" "current" {}
 
+# VPC Data Resources
 data "aws_vpc" "cloud9_vpc" {
   id = var.cloud9_vpc_id
 }
@@ -11,6 +12,8 @@ data "aws_route_table" "cloud9_rtb" {
   vpc_id = var.cloud9_vpc_id
 }
 
+
+# IAM Policy Documents
 data "aws_iam_policy_document" "s3_access_policy" {
   statement {
     effect  = "Allow"
@@ -23,7 +26,7 @@ data "aws_iam_policy_document" "s3_access_policy" {
   statement {
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
-    resources = ["${aws_s3_bucket.vault_s3_bucket.arn}"]
+    resources = [aws_s3_bucket.vault_s3_bucket.arn]
   }
 }
 
@@ -32,7 +35,7 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
     effect  = "Deny"
     actions = ["s3:*"]
     resources = [
-      "${aws_s3_bucket.vault_s3_bucket.arn}",
+      aws_s3_bucket.vault_s3_bucket.arn,
       "${aws_s3_bucket.vault_s3_bucket.arn}/*"
     ]
 
@@ -64,19 +67,19 @@ data "aws_iam_policy_document" "s3_bucket_logs_policy" {
     condition {
       test     = "ArnLike"
       variable = "aws:SourceArn"
-      values   = ["${aws_s3_bucket.vault_s3_bucket.arn}"]
+      values   = [aws_s3_bucket.vault_s3_bucket.arn]
     }
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = ["${data.aws_caller_identity.current.account_id}"]
+      values   = [data.aws_caller_identity.current.account_id]
     }
   }
   statement {
     effect  = "Deny"
     actions = ["s3:*"]
     resources = [
-      "${aws_s3_bucket.access_logs_bucket.arn}",
+      aws_s3_bucket.access_logs_bucket.arn,
       "${aws_s3_bucket.access_logs_bucket.arn}/*"
     ]
     principals {
@@ -90,6 +93,161 @@ data "aws_iam_policy_document" "s3_bucket_logs_policy" {
     }
   }
 }
+
+data "aws_iam_policy_document" "dynamodb_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:Query",
+      "dynamodb:DescribeTable"
+    ]
+    resources = [
+      aws_dynamodb_table.product_table.arn
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "vault_sa_role_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole"
+    ]
+    resources = [
+      aws_iam_role.vault_role.arn
+    ]
+  }
+  statement {
+    sid       = "VaultKMSUnseal"
+    effect    = "Allow"
+    resources = [aws_kms_key.vault_autounseal_key.arn]
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:DescribeKey",
+    ]
+  }
+}
+
+# ECR Images
+data "aws_ecr_image" "aws_image" {
+  depends_on      = [module.push_aws_cli_image_ecr]
+  repository_name = module.push_aws_cli_image_ecr.ecr_repo_name
+  image_tag       = "latest"
+}
+
+data "aws_ecr_image" "vault_image" {
+  depends_on      = [module.push_vault_image_ecr]
+  repository_name = module.push_vault_image_ecr.ecr_repo_name
+  image_tag       = "latest"
+}
+
+data "aws_ecr_image" "vaultk8s_image" {
+  depends_on      = [module.push_vault_k8s_image_ecr]
+  repository_name = module.push_vault_k8s_image_ecr.ecr_repo_name
+  image_tag       = "latest"
+}
+
+#### Vault Configuration ####
+# IAM Resources
+resource "aws_iam_role" "vault_role" {
+  name = "vault-role-${random_string.random_string.id}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = "AllowNodes"
+        Principal = {
+          "AWS" : aws_iam_role.vault_sa_role.arn
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "dynamodb_policy" {
+  name        = "dynamodb-policy-${random_string.random_string.id}"
+  path        = "/"
+  description = "dynamodb policy for tenants"
+  policy      = data.aws_iam_policy_document.dynamodb_policy.json
+}
+
+resource "aws_iam_role_policy_attachment" "vault_role_policy" {
+  role       = aws_iam_role.vault_role.name
+  policy_arn = aws_iam_policy.dynamodb_policy.arn
+}
+
+resource "aws_iam_role" "vault_sa_role" {
+  name = "${var.tag_prefix}-vault-sa-role-${random_string.random_string.id}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          "Federated" : module.eks.oidc_provider_arn
+        }
+        Condition = {
+          "StringLike" = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:vault:vault-sa",
+            "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
+          }
+        },
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "vault_sa_policy" {
+  name        = "vault-sa-role-policy-${random_string.random_string.id}"
+  path        = "/"
+  description = "Policy for Vault SA in EKS"
+  policy      = data.aws_iam_policy_document.vault_sa_role_policy.json
+}
+
+resource "aws_iam_role_policy_attachment" "vault_sa_role" {
+  role       = aws_iam_role.vault_sa_role.name
+  policy_arn = aws_iam_policy.vault_sa_policy.arn
+}
+
+resource "helm_release" "vault" {
+  depends_on = [module.eks, module.push_vault_image_ecr, module.push_vault_k8s_image_ecr, module.vpc_endpoints, module.vpc,
+  aws_route.vpc_to_peer, aws_route.peer_to_vpc, aws_vpc_peering_connection.vpc_peering]
+  name             = try(var.helm_config.name, "vault")
+  namespace        = try(var.helm_config.namespace, "vault")
+  create_namespace = try(var.helm_config.create_namespace, true)
+  description      = try(var.helm_config.description, null)
+  chart            = "vault"
+  version          = try(var.helm_config.version, "0.23.0")
+  repository       = try(var.helm_config.repository, "https://helm.releases.hashicorp.com")
+  values = [templatefile("${path.module}/values.tmpl", {
+    vault_injector_ecr_repo      = "${module.push_vault_k8s_image_ecr.ecr_url}@sha256"
+    vault_injector_ecr_image_tag = trimprefix(data.aws_ecr_image.vaultk8s_image.id, "sha256:")
+    vault_ecr_repo               = "${module.push_vault_image_ecr.ecr_url}@sha256"
+    vault_ecr_image_tag          = trimprefix(data.aws_ecr_image.vault_image.id, "sha256:")
+    vault_sa_role                = aws_iam_role.vault_sa_role.arn
+    aws_region                   = var.region
+    kms_key_id                   = aws_kms_key.vault_autounseal_key.key_id
+  })]
+
+}
+
+resource "aws_kms_key" "vault_autounseal_key" {
+  description             = "Vault unseal key"
+  deletion_window_in_days = 10
+
+  tags = {
+    Name = "vault-kms-unseal-${random_string.random_string.id}"
+  }
+}
+#### END VAULT CONFIG ####
 
 
 #### VPC Configuration ####
@@ -123,9 +281,9 @@ module "vpc" {
 }
 
 module "vpc_endpoints" {
-  source = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
-
-  vpc_id = module.vpc.vpc_id
+  source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
+  version = "3.19.0"
+  vpc_id  = module.vpc.vpc_id
 
   endpoints = {
     s3 = {
@@ -229,7 +387,6 @@ resource "aws_route" "peer_to_vpc" {
 }
 
 resource "aws_vpc_peering_connection" "vpc_peering" {
-
   peer_vpc_id = var.cloud9_vpc_id
   vpc_id      = module.vpc.vpc_id
 
@@ -257,6 +414,8 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
+
+
   eks_managed_node_group_defaults = {
     ami_type                   = var.eks_data.ami_type_default
     instance_types             = var.eks_data.instance_types
@@ -264,7 +423,6 @@ module "eks" {
     vpc_cni_enable_ipv4        = true
   }
 
-  #manage_aws_auth_configmap = true
   create_kms_key = false
   cluster_encryption_config = {
     resources        = ["secrets"]
@@ -298,7 +456,6 @@ module "eks" {
     }
   }
 
-
   eks_managed_node_groups = {
 
     default_node_group = {
@@ -318,20 +475,11 @@ module "eks" {
         max_unavailable_percentage = 1
       }
 
-
       description = "EKS managed node group launch template"
 
       ebs_optimized           = true
       disable_api_termination = false
       enable_monitoring       = true
-
-      #     #### Remote Access (Troubleshooting Nodes) ####
-      #     #### TODO: REMOVE ME ####
-      #     remote_access = {
-      #       ec2_ssh_key               = module.key_pair.key_pair_name
-      #       source_security_group_ids = [aws_security_group.remote_access.id]
-      #     }
-
 
       block_device_mappings = {
         xvda = {
@@ -357,21 +505,7 @@ module "eks" {
         AmazonSSMManagedInstanceCore       = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
         AmazonEBSCSIDriverPolicy           = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
       }
-
     }
-
-
-    #   default_node_group = {
-    #     use_custom_launch_template = false
-
-    #     min_size     = var.eks_data.min_size
-    #     max_size     = var.eks_data.max_size
-    #     desired_size = var.eks_data.desired_size
-
-    #     update_config = {
-    #       max_unavailable = 1
-    #     }
-
   }
 }
 
@@ -417,6 +551,16 @@ resource "aws_security_group" "vpc_tls" {
   }
 }
 
+resource "aws_security_group_rule" "vault_webhook_nodes" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  description              = "Cluster API to Nodes Vault Webhook"
+  source_security_group_id = module.eks.cluster_security_group_id
+  security_group_id        = module.eks.node_security_group_id
+}
+
 resource "aws_security_group" "vpc_eks_node_to_cluster" {
   name_prefix = "${var.tag_prefix}-eks-vpce"
   description = "Allow all traffic"
@@ -438,7 +582,7 @@ resource "aws_iam_role" "s3_access_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
+        Action = "sts:AssumeRoleWithWebIdentity"
         Effect = "Allow"
         Sid    = ""
         Principal = {
@@ -467,29 +611,6 @@ resource "aws_iam_role_policy_attachment" "s3_access_role" {
   policy_arn = aws_iam_policy.s3_access_policy.arn
 }
 
-resource "aws_iam_role" "vault-sa-role" {
-  name = "${var.tag_prefix}-vault-sa-role-${random_string.random_string.id}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Sid    = ""
-        Principal = {
-          "Federated" : module.eks.oidc_provider_arn
-        }
-        Condition = {
-          "StringLike" = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:vault:vault-sa",
-            "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-          }
-        },
-      }
-    ]
-  })
-}
-
 #### Dynamo DB Configuration ####
 resource "aws_dynamodb_table" "product_table" {
   attribute {
@@ -504,7 +625,7 @@ resource "aws_dynamodb_table" "product_table" {
 
   billing_mode = "PROVISIONED"
   hash_key     = "ShardID"
-  name         = "ProductsTable"
+  name         = "ProductsTable_${random_string.random_string.id}"
 
   point_in_time_recovery {
     enabled = "false"
@@ -531,7 +652,8 @@ resource "aws_dynamodb_table_item" "insert_items" {
 
 #### S3 Configuration ####
 resource "aws_s3_bucket" "vault_s3_bucket" {
-  bucket = "vault-agent-template-${random_string.random_string.id}"
+  bucket        = "vault-agent-template-${random_string.random_string.id}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "vault_s3_bucket" {
@@ -566,7 +688,8 @@ resource "aws_s3_bucket_policy" "vault_s3_bucket" {
 }
 
 resource "aws_s3_bucket" "access_logs_bucket" {
-  bucket = "${aws_s3_bucket.vault_s3_bucket.id}-access-logs"
+  bucket        = "${aws_s3_bucket.vault_s3_bucket.id}-access-logs"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "access_logs_bucket" {
@@ -618,66 +741,28 @@ resource "aws_s3_bucket_acl" "access_logs_bucket" {
 }
 
 
-#### ECR Configuration
-resource "aws_ecr_repository" "aws_cli" {
-  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-aws-cli"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  encryption_configuration {
-    encryption_type = "KMS"
-  }
-}
-
-resource "aws_ecr_repository" "vault" {
-  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  encryption_configuration {
-    encryption_type = "KMS"
-  }
-}
-
-resource "aws_ecr_repository" "vault_k8s" {
-  name = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  encryption_configuration {
-    encryption_type = "KMS"
-  }
-}
-
 module "push_vault_image_ecr" {
-  source             = "./container"
-  image_name         = var.vault_image
-  region             = var.region
-  ecr_repository_url = aws_ecr_repository.vault.repository_url
-  ecr_registry_id    = aws_ecr_repository.vault.registry_id
+  depends_on = [module.eks]
+  source     = "./container"
+  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault"
+  image_name = var.vault_image
+  region     = var.region
 }
 
 module "push_vault_k8s_image_ecr" {
-  source             = "./container"
-  image_name         = var.vault_k8s_image
-  region             = var.region
-  ecr_repository_url = aws_ecr_repository.vault_k8s.repository_url
-  ecr_registry_id    = aws_ecr_repository.vault_k8s.registry_id
+  depends_on = [module.eks]
+  source     = "./container"
+  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
+  image_name = var.vault_k8s_image
+  region     = var.region
 }
 
 module "push_aws_cli_image_ecr" {
-  source             = "./container"
-  image_name         = var.aws_cli_image
-  region             = var.region
-  ecr_repository_url = aws_ecr_repository.aws_cli.repository_url
-  ecr_registry_id    = aws_ecr_repository.aws_cli.registry_id
-
+  depends_on = [module.eks]
+  source     = "./container"
+  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-aws-cli"
+  image_name = var.aws_cli_image
+  region     = var.region
 }
 
 #### Random string generator ####
@@ -687,36 +772,3 @@ resource "random_string" "random_string" {
   upper            = false
   override_special = "-"
 }
-
-#### Remote Access (Troubleshooting Nodes) ####
-#### TODO: REMOVE ME ####
-# module "key_pair" {
-#   source  = "terraform-aws-modules/key-pair/aws"
-#   version = "~> 2.0"
-
-#   key_name_prefix    = var.tag_prefix
-#   create_private_key = true
-
-# }
-
-# resource "aws_security_group" "remote_access" {
-#   name_prefix = "${var.tag_prefix}-remote-access"
-#   description = "Allow remote SSH access"
-#   vpc_id      = module.vpc.vpc_id
-
-#   ingress {
-#     description = "SSH access"
-#     from_port   = 22
-#     to_port     = 22
-#     protocol    = "tcp"
-#     cidr_blocks = [data.aws_vpc.cloud9_vpc.cidr_block]
-#   }
-
-#   egress {
-#     from_port        = 0
-#     to_port          = 0
-#     protocol         = "-1"
-#     cidr_blocks      = ["0.0.0.0/0"]
-#     ipv6_cidr_blocks = ["::/0"]
-#   }
-# }

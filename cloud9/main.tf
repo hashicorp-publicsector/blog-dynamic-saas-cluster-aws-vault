@@ -37,7 +37,7 @@ resource "random_string" "random_string" {
 }
 
 #### Cloud 9 Resources ####
-resource "aws_cloud9_environment_ec2" "saas-cloud9" {
+resource "aws_cloud9_environment_ec2" "saas_cloud9" {
   connection_type             = "CONNECT_SSM"
   name                        = "dynamic-saas-cluster-${random_string.random_string.id}"
   automatic_stop_time_minutes = var.cloud9_auto_stop_minutes

@@ -49,12 +49,6 @@ variable "aws_cli_image" {
   type        = string
 }
 
-variable "cloud9_subnet_id" {
-  description = "Subnet ID of Cloud9 Subnet"
-  type        = string
-
-}
-
 variable "cloud9_vpc_id" {
   description = "VPC ID of Cloud9 Subnet"
   type        = string
@@ -68,4 +62,17 @@ variable "ddb_items" {
     product_id   = string
     product_name = string
   }))
+}
+
+
+variable "helm_config" {
+  description = "Object to hold helm values"
+  type = object({
+    name             = string
+    namespace        = string
+    create_namespace = bool
+    description      = string
+    version          = string
+    repository       = string
+  })
 }
