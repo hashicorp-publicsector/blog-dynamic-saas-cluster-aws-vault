@@ -24,7 +24,7 @@ do
     export TENANT
     export APPLICATION_NS=${TENANT}
     export VAULT_AGENT_ROLE=${TENANT}
-    
+
     kubectl -n ${VAULT_NS} exec -it ${VAULT_POD} -c vault \
         -- env VAULT_TOKEN=$VAULT_TOKEN \
                 RANDOM_STRING=$RANDOM_STRING \
@@ -106,7 +106,7 @@ EOF
                 'vault write -f -field=secret_id \
                     auth/approle/role/'${TENANT}'/secret-id'
             )"
-    
+
     export SECRET_ID=$(echo "${SID}" | base64)
 
     # AppRole Login
@@ -119,7 +119,7 @@ EOF
                 'vault write auth/approle/login -field=token -format=json \
                     role_id='$RID' secret_id='$SID
                 )"
-    
+
     APPROLE_TOKEN=$(echo $APPROLE_DATA | jq -r .auth.client_token)
 
     # Create Application Namespace
@@ -128,7 +128,7 @@ EOF
     # Create Tenant Namespace Service Account
     kubectl -n ${APPLICATION_NS} \
     create serviceaccount ${TENANT}-sa
-    
+
     # Create Tenant Namespace Service Account
     # for accessing S3 bucket
     kubectl annotate serviceaccount \
@@ -146,7 +146,7 @@ EOF
     echo "$TEMPLATE" > ../config/pool/${TENANT}/template/${PROFILE}.ctmpl
     aws s3 cp ../config/pool/${TENANT}/template/${PROFILE}.ctmpl \
         s3://${VAULT_AGENT_TEMPLATES_BUCKET}/${TENANT}/${PROFILE}.ctmpl
-    
+
     envsubst < vault-agent-configmap.yaml > ../config/pool/${TENANT}/${TENANT}.cm
 
     kubectl -n ${APPLICATION_NS} apply -f ../config/pool/${TENANT}/${TENANT}.cm

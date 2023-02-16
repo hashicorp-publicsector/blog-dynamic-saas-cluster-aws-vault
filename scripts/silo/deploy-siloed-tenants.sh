@@ -10,7 +10,7 @@ export VAULT_TOKEN=$(aws secretsmanager get-secret-value \
                     --region ${AWS_REGION} \
                     --query SecretString \
                     | xargs)
-                    
+
 export VAULT_POD=$(kubectl -n ${VAULT_NS} get pods \
                   --selector='app.kubernetes.io/name=vault' \
                   -o jsonpath='{.items[0].metadata.name}')
@@ -19,7 +19,7 @@ echo "=========Setting up tenants========="
 export VAULT_POD=$(kubectl -n ${VAULT_NS} get pods \
                   --selector='app.kubernetes.io/name=vault' \
                   -o jsonpath='{.items[0].metadata.name}')
-                  
+
 TENANTS="tenanta tenantb"
 for TENANT in $TENANTS
 do
@@ -105,7 +105,7 @@ EOF
                 'vault write -f -field=secret_id \
                     auth/approle/role/'${TENANT}'/secret-id'
             )"
-    
+
     export SECRET_ID=$(echo "${SID}" | base64)
 
     # Create Application Namespace

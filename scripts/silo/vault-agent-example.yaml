@@ -49,4 +49,3 @@ spec:
           value: "/vault/secrets/${TENANT}"
         - name: AWS_PROFILE
           value: "${TENANT}"
-      

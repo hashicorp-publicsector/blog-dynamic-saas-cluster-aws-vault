@@ -6,7 +6,7 @@ data:
   config.hcl: |
     # Comment this out if running as sidecar instead of initContainer
     exit_after_auth = false
-    
+
     pid_file = "/home/vault/.pid"
 
     auto_auth {
@@ -26,7 +26,7 @@ data:
             }
         }
     }
-    
+
     vault = {
       address = "https://${VAULT_ADDR}"
     }

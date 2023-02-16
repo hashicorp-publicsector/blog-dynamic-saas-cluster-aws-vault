@@ -4,11 +4,11 @@ variable "image_name" {
 }
 
 variable "region" {
-  type = string
+  type        = string
   description = "ECR Repository Region"
 }
 
 variable "name" {
-  type = string
+  type        = string
   description = "ECR Repository Name"
 }

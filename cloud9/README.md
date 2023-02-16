@@ -23,7 +23,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_cloud9_environment_ec2.saas-cloud9](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloud9_environment_ec2) | resource |
+| [aws_cloud9_environment_ec2.saas_cloud9](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloud9_environment_ec2) | resource |
 | [aws_iam_instance_profile.cloud9_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_role.cloud9_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [random_string.random_string](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
@@ -44,5 +44,7 @@ No modules.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_cloud9_arn"></a> [cloud9\_arn](#output\_cloud9\_arn) | n/a |
+| <a name="output_cloud9_id"></a> [cloud9\_id](#output\_cloud9\_id) | n/a |
 | <a name="output_cloud9_subnet"></a> [cloud9\_subnet](#output\_cloud9\_subnet) | n/a |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

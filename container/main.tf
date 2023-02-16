@@ -27,10 +27,8 @@ resource "docker_tag" "image_tag" {
 
 #### Secure Image Delivery to ECR ####
 resource "null_resource" "image_push" {
-  depends_on  = [aws_ecr_repository.ecr_repo]
+  depends_on = [aws_ecr_repository.ecr_repo]
   provisioner "local-exec" {
-    command = "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.ecr_repo.repository_url} && docker push ${docker_tag.image_tag.target_image}" 
+    command = "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.ecr_repo.repository_url} && docker push ${docker_tag.image_tag.target_image}"
   }
 }
-
-

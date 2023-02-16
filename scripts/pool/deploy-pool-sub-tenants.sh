@@ -27,7 +27,7 @@ do
                     -l app=vault-agent-example \
                     -o jsonpath='{.items[*].metadata.name}'
                 )
-    
+
     for SUBTENANT in $SUBTENANTS
     do
         kubectl -n ${VAULT_NS} exec -it ${VAULT_POD} -c vault \
@@ -64,13 +64,13 @@ do
 }
 EOF
                 vault read aws/roles/${SUBTENANT}
-    
+
                 echo \"Creating Vault credentials endpoint for ${SUBTENANT}\"
                 echo \"====================================================\"
                 vault write aws/sts/${SUBTENANT} ttl=60m
-    
+
                 vault read aws/sts/${SUBTENANT}"
-    
+
         # Update vault-agent-configmap for ${APPLICATION_NS}
         export PROFILE="${SUBTENANT}"
         export TEMPLATE=$(envsubst < vault-agent-config-template.hcl)
@@ -98,7 +98,7 @@ EOF
     # Vault SIGHUP Behavior
     # https://support.hashicorp.com/hc/en-us/articles/5767318985107-Vault-SIGHUP-Behavior
     #
-    
+
     kubectl -n ${APPLICATION_NS} apply -f ../config/pool/${TENANT}/${TENANT}.cm
 
     for APP_POD in ${APP_PODS}

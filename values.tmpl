@@ -8,17 +8,17 @@ server:
   image:
     repository: ${vault_ecr_repo}
     tag: ${vault_ecr_image_tag}
-    
+
   extraEnvironmentVars: {
     "AWS_STS_REGIONAL_ENDPOINTS": "regional"
   }
-  
+
   serviceAccount:
     name: vault-sa
     annotations: {
       "eks.amazonaws.com/role-arn": ${vault_sa_role}
     }
-    
+
   standalone:
     config: |
       ui = true

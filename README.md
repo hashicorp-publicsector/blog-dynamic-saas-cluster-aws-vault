@@ -316,63 +316,35 @@ The deployed components can be cleaned up via the following procedure.
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_cli_image"></a> [aws\_cli\_image](#input\_aws\_cli\_image) | Image name and tag for aws\_cli | `string` | n/a | yes |
 | <a name="input_cloud9_vpc_id"></a> [cloud9\_vpc\_id](#input\_cloud9\_vpc\_id) | VPC ID of Cloud9 Subnet | `string` | n/a | yes |
-| <a name="input_ddb_items"></a> [ddb\_items](#input\_ddb\_items) | Items to add to DDB table | <pre>map(object({<br>    shard_id     = string<br>    product_# SaaS Data Isolation with Dynamic Credentials Using Hashicorp Vault in Amazon EKS
+| <a name="input_ddb_items"></a> [ddb\_items](#input\_ddb\_items) | Items to add to DDB table | <pre>map(object({<br>    shard_id     = string<br>    product_id   = string<br>    product_name = string<br>  }))</pre> | n/a | yes |
+| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_size      = string<br>    volume_type      = string<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |
+| <a name="input_helm_config"></a> [helm\_config](#input\_helm\_config) | Object to hold helm values | <pre>object({<br>    name             = string<br>    namespace        = string<br>    create_namespace = bool<br>    description      = string<br>    version          = string<br>    repository       = string<br>  })</pre> | n/a | yes |
+| <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | n/a | yes |
+| <a name="input_tag_prefix"></a> [tag\_prefix](#input\_tag\_prefix) | Prefix tag for VPCs | `string` | n/a | yes |
+| <a name="input_vault_image"></a> [vault\_image](#input\_vault\_image) | Image name and tag for Vault | `string` | n/a | yes |
+| <a name="input_vault_k8s_image"></a> [vault\_k8s\_image](#input\_vault\_k8s\_image) | Image name and tag for Vault-K8S | `string` | n/a | yes |
+| <a name="input_vpc_data"></a> [vpc\_data](#input\_vpc\_data) | Data required to be passed to VPC module | <pre>object({<br>    cidr                 = string<br>    public_subnet_cidrs  = list(string)<br>    private_subnet_cidrs = list(string)<br>    availability_zones   = list(string)<br>  })</pre> | n/a | yes |
 
-The code shared here is intended to provide a sample implementation of SaaS Data Isolation with Dynamic Credentials Using HashiCorp Vault in Amazon EKS. The goal is to provide SaaS developers and architects with working code that will illustrate how multi-tenant SaaS applications can be design and delivered on AWS using HashiCorp Vault and Amazon EKS. The solution implements an identity model that simplifies the management of data access policies and credentials in isolated tenant environments. The focus here is more on giving developers a view into the working elements of the solution without going to the extent of making a full, production-ready solution.  
+## Outputs
 
-This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/products/terraform) and it's [providers](https://registry.terraform.io/providers/) to configure the architecture provided in the blog post [insert-valid-link](http://0)  
-
-## Prerequisites
-<details>
-<summary>click to expand</summary>
-
-1. Terraform OSS (it's free!)
-2. git CLI (if using Terraform OSS)
-3. An AWS account
-
-</details>
-
-## Usage
-<details>
-<summary>click to expand</summary>
-
-### Terraform OSS
-1. Clone the git repository and navigate to the cloud9 directory:  
-
-    ```bash
-    git clone [url]  
-    cd [repo-name]/cloud9/  
-    ```
-
-
-2. Run these Terraform commands:  
-
-    ```hcl  
-    terraform init [press enter]
-    terraform plan [press enter]
-    terraform apply --auto-approve [press enter]
-    ```
-
-3. Once complete, Terraform will output the ARN for Cloud9.  Log into your AWS account and access the provisioned Cloud9 instance.  **All the other cli based steps will be performed on the Cloud9 Instance**.  
-
-4. Create EC2 Instance Role via the AWS Console
-
-    - Follow [this deep link](https://console.aws.amazon.com/iam/home#/roles$new?step=review&commonUseCase=EC2%2BEC2&selectedUseCase=EC2&policies=arn:aws:iam::aws:policy%2FAdministratorAccess) to create an IAM role with Administrator access.
-    - Confirm that AWS service and EC2 are selected, then click Next to view permissions.
-    - Confirm that `AdministratorAccess` is checked, then click **Next: Tags** to assign tags.
-    - Take the defaults, and click **Next: Review** to review.
-    - Enter `dynamic-policy-ref-arch-admin` for the Name, and click **Create role**.
-
-5. Remove managed credentials and attach EC2 Instance Role to Cloud9 Instance
-
-    - Click the gear in the upper right-hand corner of the IDE which opens settings. Click the `AWS Settings` on the left and under `Credentials` slide the button to the left for `AWS managed temporary credentials`. The button should be greyed out when done, indicating it's off.
-    - Click the round button with an alphabet in the upper right-hand corner of the IDE and click `Manage EC2 Instance`. This will take you to the EC2 portion of the AWS Console
-    - Right-click the EC2 instance and in the fly-out menu, click `Security` -> `Modify IAM Role`
-    - Choose the Role you created in the step above. It should be titled `dynamic-policy-ref-arch-admin` and click  `Save`.
-
-6. In the Cloud9 IDE, clone the repo and resume provisioning with Terraform:
-    - Click `Window` -> `New Terminal` and enter the following commands:
-    -   `cd [repo-name]/ [press enter]`
-) | n/a |
+| Name | Description |
+|------|-------------|
+| <a name="output_ACCOUNT_ID"></a> [ACCOUNT\_ID](#output\_ACCOUNT\_ID) | n/a |
+| <a name="output_AWSCLI_IMAGE_TAG"></a> [AWSCLI\_IMAGE\_TAG](#output\_AWSCLI\_IMAGE\_TAG) | n/a |
+| <a name="output_AWSCLI_REPO_NAME"></a> [AWSCLI\_REPO\_NAME](#output\_AWSCLI\_REPO\_NAME) | n/a |
+| <a name="output_AWS_REGION"></a> [AWS\_REGION](#output\_AWS\_REGION) | n/a |
+| <a name="output_EKS_CLUSTER_NAME"></a> [EKS\_CLUSTER\_NAME](#output\_EKS\_CLUSTER\_NAME) | n/a |
+| <a name="output_RANDOM_STRING"></a> [RANDOM\_STRING](#output\_RANDOM\_STRING) | n/a |
+| <a name="output_REPO_URI_AWSCLI"></a> [REPO\_URI\_AWSCLI](#output\_REPO\_URI\_AWSCLI) | n/a |
+| <a name="output_REPO_URI_VAULT"></a> [REPO\_URI\_VAULT](#output\_REPO\_URI\_VAULT) | n/a |
+| <a name="output_TENANT_SA_ROLE_ARN"></a> [TENANT\_SA\_ROLE\_ARN](#output\_TENANT\_SA\_ROLE\_ARN) | n/a |
+| <a name="output_VAULT_AGENT_TEMPLATES_BUCKET"></a> [VAULT\_AGENT\_TEMPLATES\_BUCKET](#output\_VAULT\_AGENT\_TEMPLATES\_BUCKET) | n/a |
+| <a name="output_VAULT_IMAGE_TAG"></a> [VAULT\_IMAGE\_TAG](#output\_VAULT\_IMAGE\_TAG) | n/a |
+| <a name="output_VAULT_K8S_ECR_URI"></a> [VAULT\_K8S\_ECR\_URI](#output\_VAULT\_K8S\_ECR\_URI) | n/a |
+| <a name="output_VAULT_K8S_IMAGE_TAG"></a> [VAULT\_K8S\_IMAGE\_TAG](#output\_VAULT\_K8S\_IMAGE\_TAG) | n/a |
+| <a name="output_VAULT_NS"></a> [VAULT\_NS](#output\_VAULT\_NS) | n/a |
+| <a name="output_VAULT_REPO_NAME"></a> [VAULT\_REPO\_NAME](#output\_VAULT\_REPO\_NAME) | n/a |
+| <a name="output_VAULT_ROLE"></a> [VAULT\_ROLE](#output\_VAULT\_ROLE) | n/a |
+| <a name="output_VAULT_SA_ROLE_ARN"></a> [VAULT\_SA\_ROLE\_ARN](#output\_VAULT\_SA\_ROLE\_ARN) | n/a |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 </details>

@@ -5,7 +5,7 @@ apiVersion: v1
 data:
   config.hcl: |
     exit_after_auth = false
-    
+
     pid_file = "/home/vault/.pid"
 
     auto_auth {
@@ -25,7 +25,7 @@ data:
             }
         }
     }
-    
+
     vault = {
       address = "https://${VAULT_ADDR}"
     }
