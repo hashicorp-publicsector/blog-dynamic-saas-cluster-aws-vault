@@ -49,11 +49,11 @@ If you get errors for both of these commands, and in particular if the AWSCloud9
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_cloud9_auto_stop_minutes"></a> [cloud9\_auto\_stop\_minutes](#input\_cloud9\_auto\_stop\_minutes) | Minutes to automatically shut down Cloud9 if idle | `number` | n/a | yes |
+| <a name="input_cloud9_auto_stop_minutes"></a> [cloud9\_auto\_stop\_minutes](#input\_cloud9\_auto\_stop\_minutes) | The number of minutes until the running instance is shut down after the environment has last been used | `number` | `1800` | no |
 | <a name="input_cloud9_default_role_exists"></a> [cloud9\_default\_role\_exists](#input\_cloud9\_default\_role\_exists) | Flag to create instance profile and role if they dont exist | `bool` | `false` | no |
-| <a name="input_cloud9_instance_size"></a> [cloud9\_instance\_size](#input\_cloud9\_instance\_size) | Instance size for Cloud9 environment | `string` | n/a | yes |
+| <a name="input_cloud9_instance_size"></a> [cloud9\_instance\_size](#input\_cloud9\_instance\_size) | Instance size for Cloud9 environment | `string` | `"t3.medium"` | no |
 | <a name="input_cloud9_vpc"></a> [cloud9\_vpc](#input\_cloud9\_vpc) | Object to store VPC details for Cloud9 Environment | <pre>object({<br>    cidr                = string<br>    azs                 = list(string)<br>    public_subnet_cidrs = list(string)<br>  })</pre> | n/a | yes |
-| <a name="input_region"></a> [region](#input\_region) | Region for Cloud9 Instance.  Ensure this matches the region used for the root folder | `string` | n/a | yes |
+| <a name="input_region"></a> [region](#input\_region) | Region for Cloud9 Instance.  Ensure this matches the region used for the root folder | `string` | `"us-east-2"` | no |
 
 ## Outputs
 
