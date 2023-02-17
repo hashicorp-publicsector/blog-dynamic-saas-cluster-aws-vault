@@ -62,7 +62,8 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 
 6. In the Cloud9 IDE, clone the repo and resume provisioning with Terraform:
     - Click `Window` -> `New Terminal` and enter the following commands:
-    -   `cd [repo-name]/ [press enter]`
+    - `cd [repo-name]/ [press enter]`
+    -  Open the `terraform.example.auto.tfvars` file and update the **cloud9_vpc_id** field with the output of the cloud9 vpc id from the previous local terraform run, replacing the VPC id with the one provided in the outputs.  Save the file, and then run the following:
 
     ```hcl  
     terraform init [press enter]
