@@ -12,3 +12,18 @@ variable "cloud9_instance_size" {
   description = "Instance size for Cloud9 environment"
   type        = string
 }
+
+variable "cloud9_default_role_exists" {
+  description = "Flag to create instance profile and role if they dont exist"
+  type        = bool
+  default     = false
+}
+
+variable "cloud9_vpc" {
+  description = "Object to store VPC details for Cloud9 Environment"
+  type = object({
+    cidr                = string
+    azs                 = list(string)
+    public_subnet_cidrs = list(string)
+  })
+}

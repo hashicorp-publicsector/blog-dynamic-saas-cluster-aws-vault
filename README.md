@@ -26,6 +26,14 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     cd [repo-name]/cloud9/  
     ```
 
+    Note that prior to running the commands in step 2, you will need to validate if the default AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile are in your AWS Account.  They will be if you've ever launched an SSM_Connect Cloud9 instance previously **via the GUI**.  If this is the case, set the `var.cloud9_default_role_exists` to true to prevent Terraform from attempting to create these.  You can set this value in the `auto.tfvars` file.  
+
+    To check if the Instance Profile or Role already exist in your account, run the following commands
+
+    ```bash  
+    aws iam get-instance-profile --instance-profile AWSCloud9SSMInstanceProfile
+    aws iam get-role --role-name AWSCloud9SSMAccessRole
+    ```  
 
 2. Run these Terraform commands:  
 
