@@ -15,8 +15,10 @@ module "vpc" {
   name    = "cloud9-vpc-${random_pet.random_pet.id}"
   cidr    = var.cloud9_vpc.cidr
 
-  azs            = var.cloud9_vpc.azs
-  public_subnets = var.cloud9_vpc.public_subnet_cidrs
+  azs                  = var.cloud9_vpc.azs
+  public_subnets       = var.cloud9_vpc.public_subnet_cidrs
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
 }
 

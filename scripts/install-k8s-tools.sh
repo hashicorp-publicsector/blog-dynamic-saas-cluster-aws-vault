@@ -8,6 +8,6 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-sudo yum install -y kubectl
+sudo yum install -y kubectl jq
 
 alias k=kubectl && echo "alias k=kubectl" >> ~/.bash_profile

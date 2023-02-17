@@ -222,6 +222,24 @@ The deployed components can be cleaned up via the following procedure.
     terraform destroy --auto-approve [press enter]  
     ```  
 
+   **NOTE:** EKS may not completely delete the ENI associated with the Node Group upon deletion.  This will cause terraform to hang while attempting to destroy the Security Group attached to the ENI.  If you see that terraform is alternating between deleting the following two resource addresses:  
+
+   ```bash
+   module.eks.aws_security_group.node[0]: Still destroying... [id=sg-034a27861feee7258, 1m20s elapsed]
+   module.vpc.aws_subnet.private[0]: Still destroying... [id=subnet-037ae0981f4d7f14b, 1m30s elapsed]
+   ```  
+
+   Then run the following commands:  
+   `aws ec2 describe-network-interfaces --filters Name=group-id,Values=<security-group-id> --region <region> --output json | jq -r '.NetworkInterfaces[] | .NetworkInterfaceId, .Description'`  
+
+   If the Description states that the ENI is related to the EKS Cluster created by Terraform for this example, and the interface status is "Available", this indicates that EKS did not properly delete the network interface.  
+
+   Delete the network interface via the GUI, or via the CLI with  
+
+   `aws ec2 delete-network-interface --network-interface-id <network interface ID from above command> --region <region>`  
+
+   If you do this while Terraform is still running, it should unblock the ability to remove the security group and complete the destruction of resources.  If not, you may have to run `terraform destroy` again to clean up the VPC.  
+
 ### Local Workstation  
 1. On your local workstation, destroy the Cloud9 environment created by Terraform:  
     `cd [repo-name]/cloud9 [press enter]`  
@@ -305,7 +323,7 @@ The deployed components can be cleaned up via the following procedure.
 | [aws_security_group_rule.vault_webhook_nodes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
 | [aws_vpc_peering_connection.vpc_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_peering_connection) | resource |
 | [helm_release.vault](https://registry.terraform.io/providers/hashicorp/helm/latest/docs/resources/release) | resource |
-| [random_string.random_string](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
+| [random_pet.random_pet](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_canonical_user_id.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/canonical_user_id) | data source |
 | [aws_ecr_image.aws_image](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_image) | data source |
@@ -324,6 +342,7 @@ The deployed components can be cleaned up via the following procedure.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_cli_image"></a> [aws\_cli\_image](#input\_aws\_cli\_image) | Image name and tag for aws\_cli | `string` | n/a | yes |
+| <a name="input_cloud9_subnet_id"></a> [cloud9\_subnet\_id](#input\_cloud9\_subnet\_id) | Subnet ID of Cloud9 Instance | `string` | n/a | yes |
 | <a name="input_cloud9_vpc_id"></a> [cloud9\_vpc\_id](#input\_cloud9\_vpc\_id) | VPC ID of Cloud9 Subnet | `string` | n/a | yes |
 | <a name="input_ddb_items"></a> [ddb\_items](#input\_ddb\_items) | Items to add to DDB table | <pre>map(object({<br>    shard_id     = string<br>    product_id   = string<br>    product_name = string<br>  }))</pre> | n/a | yes |
 | <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_size      = string<br>    volume_type      = string<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |

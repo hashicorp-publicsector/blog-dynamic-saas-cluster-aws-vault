@@ -9,7 +9,8 @@ data "aws_vpc" "cloud9_vpc" {
 }
 
 data "aws_route_table" "cloud9_rtb" {
-  vpc_id = var.cloud9_vpc_id
+  vpc_id    = var.cloud9_vpc_id
+  subnet_id = var.cloud9_subnet_id
 }
 
 
@@ -154,7 +155,7 @@ data "aws_ecr_image" "vaultk8s_image" {
 #### Vault Configuration ####
 # IAM Resources
 resource "aws_iam_role" "vault_role" {
-  name = "vault-role-${random_string.random_string.id}"
+  name = "vault-role-${random_pet.random_pet.id}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -171,7 +172,7 @@ resource "aws_iam_role" "vault_role" {
 }
 
 resource "aws_iam_policy" "dynamodb_policy" {
-  name        = "dynamodb-policy-${random_string.random_string.id}"
+  name        = "dynamodb-policy-${random_pet.random_pet.id}"
   path        = "/"
   description = "dynamodb policy for tenants"
   policy      = data.aws_iam_policy_document.dynamodb_policy.json
@@ -183,7 +184,7 @@ resource "aws_iam_role_policy_attachment" "vault_role_policy" {
 }
 
 resource "aws_iam_role" "vault_sa_role" {
-  name = "${var.tag_prefix}-vault-sa-role-${random_string.random_string.id}"
+  name = "${var.tag_prefix}-vault-sa-role-${random_pet.random_pet.id}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -206,7 +207,7 @@ resource "aws_iam_role" "vault_sa_role" {
 }
 
 resource "aws_iam_policy" "vault_sa_policy" {
-  name        = "vault-sa-role-policy-${random_string.random_string.id}"
+  name        = "vault-sa-role-policy-${random_pet.random_pet.id}"
   path        = "/"
   description = "Policy for Vault SA in EKS"
   policy      = data.aws_iam_policy_document.vault_sa_role_policy.json
@@ -244,7 +245,7 @@ resource "aws_kms_key" "vault_autounseal_key" {
   deletion_window_in_days = 10
 
   tags = {
-    Name = "vault-kms-unseal-${random_string.random_string.id}"
+    Name = "vault-kms-unseal-${random_pet.random_pet.id}"
   }
 }
 #### END VAULT CONFIG ####
@@ -577,7 +578,7 @@ resource "aws_security_group" "vpc_eks_node_to_cluster" {
 
 
 resource "aws_iam_role" "s3_access_role" {
-  name = "${var.tag_prefix}-s3-access-role-${random_string.random_string.id}"
+  name = "${var.tag_prefix}-s3-access-role-${random_pet.random_pet.id}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -625,7 +626,7 @@ resource "aws_dynamodb_table" "product_table" {
 
   billing_mode = "PROVISIONED"
   hash_key     = "ShardID"
-  name         = "ProductsTable_${random_string.random_string.id}"
+  name         = "ProductsTable_${random_pet.random_pet.id}"
 
   point_in_time_recovery {
     enabled = "false"
@@ -652,7 +653,7 @@ resource "aws_dynamodb_table_item" "insert_items" {
 
 #### S3 Configuration ####
 resource "aws_s3_bucket" "vault_s3_bucket" {
-  bucket        = "vault-agent-template-${random_string.random_string.id}"
+  bucket        = "vault-agent-template-${random_pet.random_pet.id}"
   force_destroy = true
 }
 
@@ -744,7 +745,7 @@ resource "aws_s3_bucket_acl" "access_logs_bucket" {
 module "push_vault_image_ecr" {
   depends_on = [module.eks]
   source     = "./container"
-  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault"
+  name       = "${var.tag_prefix}-repo-${random_pet.random_pet.id}-vault"
   image_name = var.vault_image
   region     = var.region
 }
@@ -752,7 +753,7 @@ module "push_vault_image_ecr" {
 module "push_vault_k8s_image_ecr" {
   depends_on = [module.eks]
   source     = "./container"
-  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-vault-k8s"
+  name       = "${var.tag_prefix}-repo-${random_pet.random_pet.id}-vault-k8s"
   image_name = var.vault_k8s_image
   region     = var.region
 }
@@ -760,15 +761,11 @@ module "push_vault_k8s_image_ecr" {
 module "push_aws_cli_image_ecr" {
   depends_on = [module.eks]
   source     = "./container"
-  name       = "${var.tag_prefix}-repo-${random_string.random_string.id}-aws-cli"
+  name       = "${var.tag_prefix}-repo-${random_pet.random_pet.id}-aws-cli"
   image_name = var.aws_cli_image
   region     = var.region
 }
 
 #### Random string generator ####
-resource "random_string" "random_string" {
-  length           = 8
-  special          = true
-  upper            = false
-  override_special = "-"
+resource "random_pet" "random_pet" {
 }

@@ -54,6 +54,11 @@ variable "cloud9_vpc_id" {
   type        = string
 }
 
+variable "cloud9_subnet_id" {
+  description = "Subnet ID of Cloud9 Instance"
+  type        = string
+}
+
 #### DynamoDB Table Items ####
 variable "ddb_items" {
   description = "Items to add to DDB table"

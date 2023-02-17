@@ -59,7 +59,7 @@ output "VAULT_ROLE" {
 }
 
 output "RANDOM_STRING" {
-  value = random_string.random_string.id
+  value = random_pet.random_pet.id
 }
 
 output "TENANT_SA_ROLE_ARN" {

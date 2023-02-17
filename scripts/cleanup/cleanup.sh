@@ -4,15 +4,13 @@ source ~/.bash_profile
 export $(cd ../.. && terraform output | sed 's/\s*=\s*/=/g' | xargs)
 
 echo "=========Deleting Vault Root Token and Recovery Keys from Secrets Manager========="
-export SECRETS=$(aws secretsmanager list-secrets --region ${AWS_REGION} \
-                --query 'SecretList[?starts_with(Name, `RECOVERY_KEY_${RANDOM_STRING}_`) == `true`
-                                  || starts_with(Name, `VAULT_ROOT_TOKEN_${RANDOM_STRING}`) == `true`].Name' \
-                --output text | xargs
-                )
+export SECRETS=$(aws secretsmanager list-secrets --region ${AWS_REGION} --output json | jq --arg rand "$RANDOM_STRING" -r '.SecretList[] | select(.Name | contains($rand)) | .Name' | xargs)
+
 for SECRET in ${SECRETS}
 do
     aws secretsmanager delete-secret \
         --secret-id ${SECRET} \
+        --region ${AWS_REGION} \
         --force-delete-without-recovery
 done
 
