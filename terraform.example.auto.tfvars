@@ -21,8 +21,9 @@ vault_image     = "hashicorp/vault:1.12.2"
 vault_k8s_image = "hashicorp/vault-k8s:1.1"
 aws_cli_image   = "public.ecr.aws/aws-cli/aws-cli:latest"
 
-cloud9_vpc_id    = "vpc-0241fa3c47945bf20"
-cloud9_subnet_id = "subnet-0cbd23c5187f1ae50"
+cloud9_vpc_id    = "vpc-09aad705749d55ab4"
+cloud9_subnet_id = "subnet-03f7d0c6dadb457d1"
+
 ddb_items = {
   item1 = {
     shard_id     = "tenanta",
@@ -45,12 +46,12 @@ ddb_items = {
     product_name = "BabyFormula",
   },
   item5 = {
-    shard_id     = "tenantc",
+    shard_id     = "tenantc-1",
     product_id   = "5",
     product_name = "Book",
   },
   item6 = {
-    shard_id     = "tenantc",
+    shard_id     = "tenantc-2",
     product_id   = "6",
     product_name = "SmartPhone",
   },
@@ -60,8 +61,17 @@ ddb_items = {
     product_name = "RingLight",
   },
   item8 = {
-    shard_id     = "tenantd-1",
+    shard_id     = "tenantd-2",
     product_id   = "8",
     product_name = "Laptop",
   }
+}
+
+helm_config = {
+  name             = "vault"
+  namespace        = "vault"
+  create_namespace = true
+  description      = "Vault on EKS"
+  version          = "0.23.0"
+  repository       = "https://helm.releases.hashicorp.com"
 }

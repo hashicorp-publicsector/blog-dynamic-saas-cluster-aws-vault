@@ -1,57 +1,51 @@
-data "aws_iam_policy_document" "cloud9_assume_role_policy" {
+data "aws_iam_policy_document" "cloud9_ssm_assume_role_policy" {
   statement {
     actions = ["sts:AssumeRole"]
 
     principals {
       type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
+      identifiers = ["ec2.amazonaws.com", "cloud9.amazonaws.com"]
     }
   }
 }
 
-data "aws_iam_policy" "admin_policy" {
-  name = "AdministratorAccess"
-}
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "3.19.0"
+  name    = "cloud9-vpc-${random_pet.random_pet.id}"
+  cidr    = var.cloud9_vpc.cidr
 
-data "aws_vpc" "default" {
-  default = true
-}
+  azs                  = var.cloud9_vpc.azs
+  public_subnets       = var.cloud9_vpc.public_subnet_cidrs
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
-data "aws_subnets" "public" {
-  filter {
-    name   = "map-public-ip-on-launch"
-    values = ["true"]
-  }
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
 }
 
 #### Random string generator ####
-resource "random_string" "random_string" {
-  length           = 8
-  special          = true
-  upper            = false
-  override_special = "-"
-}
+resource "random_pet" "random_pet" {}
 
 #### Cloud 9 Resources ####
-resource "aws_cloud9_environment_ec2" "saas-cloud9" {
+resource "aws_cloud9_environment_ec2" "saas_cloud9" {
   connection_type             = "CONNECT_SSM"
-  name                        = "dynamic-saas-cluster-${random_string.random_string.id}"
+  name                        = "dynamic-saas-cluster-${random_pet.random_pet.id}"
   automatic_stop_time_minutes = var.cloud9_auto_stop_minutes
   instance_type               = var.cloud9_instance_size
-  subnet_id                   = data.aws_subnets.public.ids[0]
+  subnet_id                   = module.vpc.public_subnets[0]
 }
 
-resource "aws_iam_instance_profile" "cloud9_role" {
-  name = aws_iam_role.cloud9_role.name
-  role = aws_iam_role.cloud9_role.name
+
+resource "aws_iam_instance_profile" "cloud9_ssm_profile" {
+  count = var.cloud9_default_role_exists == "false" ? 1 : 0
+  name  = "AWSCloud9SSMInstanceProfile"
+  role  = aws_iam_role.cloud9_ssm_role[0].name
+  path  = "/cloud9/"
 }
 
-resource "aws_iam_role" "cloud9_role" {
-  name                = "cloud9_role_${random_string.random_string.id}"
-  managed_policy_arns = [data.aws_iam_policy.admin_policy.arn]
-  assume_role_policy  = data.aws_iam_policy_document.cloud9_assume_role_policy.json
+resource "aws_iam_role" "cloud9_ssm_role" {
+  count               = var.cloud9_default_role_exists == "false" ? 1 : 0
+  name                = "AWSCloud9SSMAccessRole"
+  managed_policy_arns = ["arn:aws:iam::aws:policy/AWSCloud9SSMInstanceProfile"]
+  assume_role_policy  = data.aws_iam_policy_document.cloud9_ssm_assume_role_policy.json
+  path                = "/service-role/"
 }
