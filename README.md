@@ -51,9 +51,11 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 
     We've now just created the required Terraform Cloud Workspaces to house our state files.
 
-1. Navigate to the `deployment/cloud9` directory and edit `versions.tf` with your TFC Org Name and save
+1. Navigate to the `deployment/cloud9` directory:
+   - Edit `versions.tf` with your TFC Org Name and save
+   - Ensure you have valid AWS credentials loaded in your Terminal where you will run Terraform for the next two steps.  
 
-    Note that prior to running the commands in the next step, you will need to validate if the default AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile are in your AWS Account.  They will be if you've ever launched an SSM_Connect Cloud9 instance previously **via the GUI**.  If this is the case, set the `var.cloud9_default_role_exists` to true to prevent Terraform from attempting to create these.  You can set this value in the `variables.tf` file.  
+    **Note**:  Prior to running the commands in the next step, you will need to validate if the default AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile are in your AWS Account.  They will be if you've ever launched an SSM_Connect Cloud9 instance previously **via the GUI**.  If this is the case, set the `var.cloud9_default_role_exists` to true to prevent Terraform from attempting to create these.  You can set this value in the `variables.tf` file.  
 
     To check if the Instance Profile or Role already exist in your account, run the following commands
 
