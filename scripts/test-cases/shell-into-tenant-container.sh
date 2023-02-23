@@ -1,6 +1,6 @@
 #!/bin/bash
 source ~/.bash_profile
-export $(cd ../.. && terraform output | sed 's/\s*=\s*/=/g' | xargs)
+export $(cd ../../deployment/infra/ && terraform output | sed 's/\s*=\s*/=/g' | xargs)
 
 export APPLICATION_NS="tenanta"
 

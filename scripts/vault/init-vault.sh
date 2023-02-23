@@ -2,7 +2,7 @@
 #!/bin/bash
 source ~/.bash_profile
 
-export $(cd ../.. && terraform output | sed 's/\s*=\s*/=/g' | xargs)
+export $(cd ../../deployment/infra/ && terraform output | sed 's/\s*=\s*/=/g' | xargs)
 
 echo "=========Updating Kubeconfig with cluster details========="
 aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}

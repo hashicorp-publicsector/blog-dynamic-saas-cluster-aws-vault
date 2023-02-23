@@ -10,4 +10,12 @@ terraform {
       version = "~> 3.4.3"
     }
   }
+  ####  UPDATE this with your TFC organization name ####
+  cloud {
+    organization = "<your-org-name>"
+
+    workspaces {
+      name = "dynamic-saas-cluster-aws-cloud9"
+    }
+  }
 }

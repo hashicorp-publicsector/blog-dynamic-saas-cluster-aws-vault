@@ -17,3 +17,7 @@ output "cloud9_url" {
 output "cloud9_vpc" {
   value = module.vpc.vpc_id
 }
+
+output "cloud9_region" {
+  value = var.region
+}

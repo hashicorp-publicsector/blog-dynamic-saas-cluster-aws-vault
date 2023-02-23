@@ -29,6 +29,11 @@ variable "cloud9_vpc" {
     azs                 = list(string)
     public_subnet_cidrs = list(string)
   })
+  default = {
+    azs                 = ["us-east-2a", "us-east-2b"]
+    cidr                = "192.168.0.0/16"
+    public_subnet_cidrs = ["192.168.0.0/24", "192.168.1.0/24"]
+  }
 }
 
 /*

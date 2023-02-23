@@ -52,7 +52,7 @@ If you get errors for both of these commands, and in particular if the AWSCloud9
 | <a name="input_cloud9_auto_stop_minutes"></a> [cloud9\_auto\_stop\_minutes](#input\_cloud9\_auto\_stop\_minutes) | The number of minutes until the running instance is shut down after the environment has last been used | `number` | `1800` | no |
 | <a name="input_cloud9_default_role_exists"></a> [cloud9\_default\_role\_exists](#input\_cloud9\_default\_role\_exists) | Flag to create instance profile and role if they dont exist | `bool` | `false` | no |
 | <a name="input_cloud9_instance_size"></a> [cloud9\_instance\_size](#input\_cloud9\_instance\_size) | Instance size for Cloud9 environment | `string` | `"t3.medium"` | no |
-| <a name="input_cloud9_vpc"></a> [cloud9\_vpc](#input\_cloud9\_vpc) | Object to store VPC details for Cloud9 Environment | <pre>object({<br>    cidr                = string<br>    azs                 = list(string)<br>    public_subnet_cidrs = list(string)<br>  })</pre> | n/a | yes |
+| <a name="input_cloud9_vpc"></a> [cloud9\_vpc](#input\_cloud9\_vpc) | Object to store VPC details for Cloud9 Environment | <pre>object({<br>    cidr                = string<br>    azs                 = list(string)<br>    public_subnet_cidrs = list(string)<br>  })</pre> | <pre>{<br>  "azs": [<br>    "us-east-2a",<br>    "us-east-2b"<br>  ],<br>  "cidr": "192.168.0.0/16",<br>  "public_subnet_cidrs": [<br>    "192.168.0.0/24",<br>    "192.168.1.0/24"<br>  ]<br>}</pre> | no |
 | <a name="input_region"></a> [region](#input\_region) | Region for Cloud9 Instance.  Ensure this matches the region used for the root folder | `string` | `"us-east-2"` | no |
 
 ## Outputs
@@ -61,6 +61,7 @@ If you get errors for both of these commands, and in particular if the AWSCloud9
 |------|-------------|
 | <a name="output_cloud9_arn"></a> [cloud9\_arn](#output\_cloud9\_arn) | n/a |
 | <a name="output_cloud9_id"></a> [cloud9\_id](#output\_cloud9\_id) | n/a |
+| <a name="output_cloud9_region"></a> [cloud9\_region](#output\_cloud9\_region) | n/a |
 | <a name="output_cloud9_subnet"></a> [cloud9\_subnet](#output\_cloud9\_subnet) | n/a |
 | <a name="output_cloud9_url"></a> [cloud9\_url](#output\_cloud9\_url) | n/a |
 | <a name="output_cloud9_vpc"></a> [cloud9\_vpc](#output\_cloud9\_vpc) | n/a |

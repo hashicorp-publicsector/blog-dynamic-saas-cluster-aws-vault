@@ -47,7 +47,7 @@ output "ACCOUNT_ID" {
 }
 
 output "AWS_REGION" {
-  value = var.region
+  value = local.region
 }
 
 output "VAULT_NS" {

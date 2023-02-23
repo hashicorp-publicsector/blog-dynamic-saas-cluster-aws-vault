@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source ~/.bash_profile
 
-export $(cd ../.. && terraform output | sed 's/\s*=\s*/=/g' | xargs)
+export $(cd ../../deployment/infra/ && terraform output | sed 's/\s*=\s*/=/g' | xargs)
 
 export VAULT_ADDR="vault.${VAULT_NS}.svc.cluster.local:8200"
 

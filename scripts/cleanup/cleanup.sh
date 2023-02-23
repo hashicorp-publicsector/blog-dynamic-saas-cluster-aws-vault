@@ -1,7 +1,7 @@
 #!/bin/bash
 source ~/.bash_profile
 
-export $(cd ../.. && terraform output | sed 's/\s*=\s*/=/g' | xargs)
+export $(cd ../../deployment/infra/ && terraform output | sed 's/\s*=\s*/=/g' | xargs)
 
 echo "=========Deleting Vault Root Token and Recovery Keys from Secrets Manager========="
 export SECRETS=$(aws secretsmanager list-secrets --region ${AWS_REGION} --output json | jq --arg rand "$RANDOM_STRING" -r '.SecretList[] | select(.Name | contains($rand)) | .Name' | xargs)

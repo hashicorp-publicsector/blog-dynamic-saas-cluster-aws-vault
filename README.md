@@ -2,31 +2,58 @@
 
 The code shared here is intended to provide a sample implementation of SaaS Data Isolation with Dynamic Credentials Using HashiCorp Vault in Amazon EKS. The goal is to provide SaaS developers and architects with working code that will illustrate how multi-tenant SaaS applications can be design and delivered on AWS using HashiCorp Vault and Amazon EKS. The solution implements an identity model that simplifies the management of data access policies and credentials in isolated tenant environments. The focus here is more on giving developers a view into the working elements of the solution without going to the extent of making a full, production-ready solution.  
 
-This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/products/terraform) and it's [providers](https://registry.terraform.io/providers/) to configure the architecture provided in the blog post [insert-valid-link](http://0)  
+This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/products/terraform) and it's [providers](https://registry.terraform.io/providers/) to configure the architecture provided in the blog post [insert-valid-link](http://0).
+
+We will be using Terraform Cloud's free tier only to host the remote state, but instructions are provided for Terraform Cloud For Business/Enterprise customers as well in order to take advantage of Terraform Agents and automated deployment workflows.
 
 ## Prerequisites
 <details>
 <summary>click to expand</summary>
 
-1. Terraform OSS (it's free!)
-2. git CLI (if using Terraform OSS)
+### Terraform CLI + Terraform Cloud
+1. Download & Install Terraform CLI
+1. Sign up for [Terraform Cloud](https://app.terraform.io) (it's free!):
+    - Select "Start From Scratch"
+    - Create an Organization Name
+    - Paste your org name in `variables.auto.tfvars` and save
+    - Run these commands
+
+2. Download & Install git CLI
 3. An AWS account
 
 </details>
 
 ## Usage
-<details>
-<summary>click to expand</summary>
 
-### Terraform OSS
-1. Clone the git repository and navigate to the cloud9 directory:  
+<details>
+<summary>Terraform Cloud Free Tier</summary>
+
+This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS from your local workstation, and the remaining components of the deployment from the Cloud9 instance.
+
+1. Clone the git repository to your local computer and navigate to the repository directory:  
 
     ```bash
     git clone [url]  
-    cd [repo-name]/cloud9/  
+    cd dynamic-saas-cluster-aws-vault/  
     ```
 
-    Note that prior to running the commands in step 2, you will need to validate if the default AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile are in your AWS Account.  They will be if you've ever launched an SSM_Connect Cloud9 instance previously **via the GUI**.  If this is the case, set the `var.cloud9_default_role_exists` to true to prevent Terraform from attempting to create these.  You can set this value in the `auto.tfvars` file.  
+1. Authenticate With Terraform Cloud:
+    - Run `terraform login`
+    - Enter `yes` and create a new token from the GUI when prompted.  Save this token to a scratch file for later use.  DO NOT CHECK THIS TOKEN INTO SOURCE CONTROL.  
+
+1. Configure Terraform Cloud via these Terraform commands:  
+
+    ```hcl  
+    terraform init [press enter]
+    terraform plan [press enter]
+    terraform apply --auto-approve [press enter]
+    ```
+
+    We've now just created the required Terraform Cloud Workspaces to house our state files.
+
+1. Navigate to the `deployment/cloud9` directory and edit `versions.tf` with your TFC Org Name and save
+
+    Note that prior to running the commands in the next step, you will need to validate if the default AWSCloud9SSMAccessRole and AWSCloud9SSMInstanceProfile are in your AWS Account.  They will be if you've ever launched an SSM_Connect Cloud9 instance previously **via the GUI**.  If this is the case, set the `var.cloud9_default_role_exists` to true to prevent Terraform from attempting to create these.  You can set this value in the `variables.tf` file.  
 
     To check if the Instance Profile or Role already exist in your account, run the following commands
 
@@ -35,7 +62,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     aws iam get-role --role-name AWSCloud9SSMAccessRole
     ```  
 
-2. Run these Terraform commands:  
+2. Run these Terraform commands in the cloud9 directory:  
 
     ```hcl  
     terraform init [press enter]
@@ -43,7 +70,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     terraform apply --auto-approve [press enter]
     ```
 
-3. Once complete, Terraform will output the ARN for Cloud9.  Log into your AWS account and access the provisioned Cloud9 instance.  **All the other cli based steps will be performed on the Cloud9 Instance**.  
+3. Once complete, Terraform will output the URL for Cloud9.  Paste this URL into your browser to access the newly-created Cloud9 instance.  **All the other cli based steps will be performed on the Cloud9 Instance**.  
 
 4. Create EC2 Instance Role via the AWS Console
 
@@ -62,8 +89,15 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 
 6. In the Cloud9 IDE, clone the repo and resume provisioning with Terraform:
     - Click `Window` -> `New Terminal` and enter the following commands:
-    - `cd [repo-name]/ [press enter]`
-    -  Open the `terraform.example.auto.tfvars` file and update the **cloud9_vpc_id** field with the output of the cloud9 vpc id from the previous local terraform run, replacing the VPC id with the one provided in the outputs.  Save the file, and then run the following:
+    - `cd dynamic-saas-cluster-aws-vault/deployment/infra [press enter]`
+
+1. Authenticate/Configure Terraform Cloud:
+    - Run `terraform login`
+    - Enter `yes` and on the second prompt, etner the Terraform Cloud API token from above when prompted
+    - Edit `deployment/infra/versions.tf` with your TFC Org Name and save
+    - Edit `deployment/infra/remote_state.tf` with your TFC Org Name and save.  This will reference the state of the previous run to get variables needed for this run.  We can utilize the state of other workspaces as data input for the current workspace!
+
+1. Run the following:
 
     ```hcl  
     terraform init [press enter]
@@ -78,17 +112,17 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 7. Install k8s dependencies:
     - Click `Window` -> `New Terminal` and enter the following commands:
     ```bash
-    cd [repo-name]/scripts/ [press enter]
+    cd dynamic-saas-cluster-aws-vault/scripts/ [press enter]
     chmod +x install-k8s-tools.sh
     ./install-k8s-tools.sh
     ```  
 
     This will install kubectl on the Cloud9 instance and set the alias k for kubectl, if you would like a shorthand method of invoking kubectl.
 
-8. Initialized Vault:
+8. Initialize Vault:
     - In the same window as Step 7, cd into the vault directory
     ```bash
-    cd [repo-name]/scripts/vault/ [press enter]
+    cd dynamic-saas-cluster-aws-vault/scripts/vault/ [press enter]
     chmod +x init-vault.sh
     ./init-vault.sh
     ```  
@@ -98,7 +132,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 9. Deploy Sample Silo Tenants:
     - Click `Window` -> `New Terminal` and enter the following commands:
     ```bash
-    cd [repo-name]/scripts/silo/ [press enter]
+    cd dynamic-saas-cluster-aws-vault/scripts/silo/ [press enter]
     chmod +x deploy-siloed-tenants.sh
     ./deploy-siloed-tenants.sh
     ```
@@ -120,7 +154,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     c. Save the file, then run  
 
       ```bash  
-      cd [repo-name]/scripts/test-cases/  
+      cd dynamic-saas-cluster-aws-vault/scripts/test-cases/  
       chmod +x shell-into-tenant-container.sh  
       ./shell-into-tenant-container.sh  
       ```  
@@ -140,7 +174,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     - Click `Window` -> `New Terminal` and enter the following commands:  
 
     ```bash  
-    cd [repo-name]/scripts/pool  
+    cd dynamic-saas-cluster-aws-vault/scripts/pool  
     chmod +x deploy-pooled-tenants.sh  
     ./deploy-pooled-tenants.sh  
     ```
@@ -161,7 +195,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     - Run the following command in the "Pooled Tenants" shell window  
 
     ```bash  
-    cd [repo-name]/scripts/pool  
+    cd dynamic-saas-cluster-aws-vault/scripts/pool  
     chmod +x deploy-pool-sub-tenants.sh  
     ./deploy-pool-sub-tenants.sh  
     ```
@@ -179,7 +213,7 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
     c. Save the file, then run  
 
     ```bash  
-    cd [repo-name]/scripts/test-cases/  
+    cd dynamic-saas-cluster-aws-vault/scripts/test-cases/  
     chmod +x shell-into-tenant-container.sh  
     ./shell-into-tenant-container.sh  
     ```  
@@ -197,25 +231,32 @@ This is a repository utilizing [HashiCorp Terraform](https://www.hashicorp.com/p
 
 </details>
 
+<details>
+<summary>Terraform Cloud For Business/Enterprise</summary>
+
+This method uses the Terraform Agents + VCS-driven Workflow to automatically provision all of the infrastructure programmatically.
+
+</details>
+
 ## Cleanup
 <details>
 <summary>click to expand</summary>
 
 
-The deployed components can be cleaned up via the following procedure.  
+The deployed components can be cleaned up via the following procedure. We'll work in backwards order, destroying resources that were created most recently.  
 
 ### Cloud9 IDE
 
 1. Run the cleanup script via a new terminal window  
     - Click `Window` -> `New Terminal` and enter the following commands:  
     ```bash  
-    cd [repo-name]/scripts/cleanup/ [press enter]  
+    cd dynamic-saas-cluster-aws-vault/scripts/cleanup/ [press enter]  
     chmod +x cleanup.sh  
     ./cleanup.sh  
     ```  
 
 2. Destroy the infrastructure and resources created by Terraform  
-    - In the same terminal window, run these commands:  
+    - In the same terminal window, navigate to `dynamic-saas-cluster-aws-vault/deployment/infra/` and run these commands:  
     ```hcl  
     terraform init [press enter]  
     terraform plan [press enter]  
@@ -241,8 +282,17 @@ The deployed components can be cleaned up via the following procedure.
    If you do this while Terraform is still running, it should unblock the ability to remove the security group and complete the destruction of resources.  If not, you may have to run `terraform destroy` again to clean up the VPC.  
 
 ### Local Workstation  
-1. On your local workstation, destroy the Cloud9 environment created by Terraform:  
-    `cd [repo-name]/cloud9 [press enter]`  
+1. On your local workstation, destroy the Cloud9 environment created by Terraform Cloud:  
+    `cd dynamic-saas-cluster-aws-vault/deployment/cloud9 [press enter]`  
+
+    ```hcl  
+    terraform init [press enter]  
+    terraform plan [press enter]  
+    terraform destroy --auto-approve [press enter]  
+    ```
+
+1. Destroy the Terraform Cloud created by Terraform CLI:  
+    `cd ../../ [press enter]`  (you should now be in the dynamic-saas-cluster-aws-vault/ directory)
 
     ```hcl  
     terraform init [press enter]  
@@ -263,116 +313,40 @@ The deployed components can be cleaned up via the following procedure.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.2.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 4.51.0 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 3.0.1 |
-| <a name="requirement_helm"></a> [helm](#requirement\_helm) | ~> 2.9.0 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | ~> 2.18.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.4.3 |
+| <a name="requirement_tfe"></a> [tfe](#requirement\_tfe) | ~>0.42.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.51.0 |
-| <a name="provider_helm"></a> [helm](#provider\_helm) | 2.9.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.4.3 |
+| <a name="provider_tfe"></a> [tfe](#provider\_tfe) | 0.42.0 |
 
 ## Modules
 
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | 19.6.0 |
-| <a name="module_kms_key"></a> [kms\_key](#module\_kms\_key) | terraform-aws-modules/kms/aws | ~> 1.1 |
-| <a name="module_push_aws_cli_image_ecr"></a> [push\_aws\_cli\_image\_ecr](#module\_push\_aws\_cli\_image\_ecr) | ./container | n/a |
-| <a name="module_push_vault_image_ecr"></a> [push\_vault\_image\_ecr](#module\_push\_vault\_image\_ecr) | ./container | n/a |
-| <a name="module_push_vault_k8s_image_ecr"></a> [push\_vault\_k8s\_image\_ecr](#module\_push\_vault\_k8s\_image\_ecr) | ./container | n/a |
-| <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 3.19.0 |
-| <a name="module_vpc_cni_irsa"></a> [vpc\_cni\_irsa](#module\_vpc\_cni\_irsa) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks | ~> 5.0 |
-| <a name="module_vpc_endpoints"></a> [vpc\_endpoints](#module\_vpc\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 3.19.0 |
+No modules.
 
 ## Resources
 
 | Name | Type |
 |------|------|
-| [aws_dynamodb_table.product_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
-| [aws_dynamodb_table_item.insert_items](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
-| [aws_iam_policy.dynamodb_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
-| [aws_iam_policy.s3_access_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
-| [aws_iam_policy.vault_sa_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
-| [aws_iam_role.s3_access_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role.vault_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role.vault_sa_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.s3_access_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.vault_role_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.vault_sa_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_kms_key.vault_autounseal_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
-| [aws_route.peer_to_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
-| [aws_route.vpc_to_peer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route) | resource |
-| [aws_s3_bucket.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
-| [aws_s3_bucket.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
-| [aws_s3_bucket_acl.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl) | resource |
-| [aws_s3_bucket_logging.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_logging) | resource |
-| [aws_s3_bucket_policy.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
-| [aws_s3_bucket_policy.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
-| [aws_s3_bucket_public_access_block.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
-| [aws_s3_bucket_public_access_block.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
-| [aws_s3_bucket_server_side_encryption_configuration.access_logs_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
-| [aws_s3_bucket_server_side_encryption_configuration.vault_s3_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
-| [aws_security_group.vpc_eks_node_to_cluster](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [aws_security_group.vpc_tls](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [aws_security_group_rule.vault_webhook_nodes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group_rule) | resource |
-| [aws_vpc_peering_connection.vpc_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_peering_connection) | resource |
-| [helm_release.vault](https://registry.terraform.io/providers/hashicorp/helm/latest/docs/resources/release) | resource |
-| [random_pet.random_pet](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
-| [aws_canonical_user_id.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/canonical_user_id) | data source |
-| [aws_ecr_image.aws_image](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_image) | data source |
-| [aws_ecr_image.vault_image](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_image) | data source |
-| [aws_ecr_image.vaultk8s_image](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ecr_image) | data source |
-| [aws_iam_policy_document.dynamodb_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [aws_iam_policy_document.s3_access_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [aws_iam_policy_document.s3_bucket_logs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [aws_iam_policy_document.s3_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [aws_iam_policy_document.vault_sa_role_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
-| [aws_route_table.cloud9_rtb](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route_table) | data source |
-| [aws_vpc.cloud9_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/vpc) | data source |
+| [tfe_agent_pool.enterprise-agent-pool](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/agent_pool) | resource |
+| [tfe_agent_token.enterprise-agent-pool-token](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/agent_token) | resource |
+| [tfe_project.main](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/project) | resource |
+| [tfe_workspace.enterprise-cloud9](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/workspace) | resource |
+| [tfe_workspace.enterprise-infra](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/workspace) | resource |
+| [tfe_workspace.free-cloud9](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/workspace) | resource |
+| [tfe_workspace.free-infra](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/resources/workspace) | resource |
+| [tfe_organization.org](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs/data-sources/organization) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_aws_cli_image"></a> [aws\_cli\_image](#input\_aws\_cli\_image) | Image name and tag for aws\_cli | `string` | n/a | yes |
-| <a name="input_cloud9_subnet_id"></a> [cloud9\_subnet\_id](#input\_cloud9\_subnet\_id) | Subnet ID of Cloud9 Instance | `string` | n/a | yes |
-| <a name="input_cloud9_vpc_id"></a> [cloud9\_vpc\_id](#input\_cloud9\_vpc\_id) | VPC ID of Cloud9 Subnet | `string` | n/a | yes |
-| <a name="input_ddb_items"></a> [ddb\_items](#input\_ddb\_items) | Items to add to DDB table | <pre>map(object({<br>    shard_id     = string<br>    product_id   = string<br>    product_name = string<br>  }))</pre> | n/a | yes |
-| <a name="input_eks_data"></a> [eks\_data](#input\_eks\_data) | Map of data relevant to the EKS Cluster | <pre>object({<br>    version          = string<br>    ami_type_default = string<br>    instance_types   = list(string)<br>    volume_size      = string<br>    volume_type      = string<br>    min_size         = number<br>    max_size         = number<br>    desired_size     = number<br>  })</pre> | n/a | yes |
-| <a name="input_helm_config"></a> [helm\_config](#input\_helm\_config) | Object to hold helm values | <pre>object({<br>    name             = string<br>    namespace        = string<br>    create_namespace = bool<br>    description      = string<br>    version          = string<br>    repository       = string<br>  })</pre> | n/a | yes |
-| <a name="input_region"></a> [region](#input\_region) | Region for deploying resources | `string` | n/a | yes |
-| <a name="input_tag_prefix"></a> [tag\_prefix](#input\_tag\_prefix) | Prefix tag for VPCs | `string` | n/a | yes |
-| <a name="input_vault_image"></a> [vault\_image](#input\_vault\_image) | Image name and tag for Vault | `string` | n/a | yes |
-| <a name="input_vault_k8s_image"></a> [vault\_k8s\_image](#input\_vault\_k8s\_image) | Image name and tag for Vault-K8S | `string` | n/a | yes |
-| <a name="input_vpc_data"></a> [vpc\_data](#input\_vpc\_data) | Data required to be passed to VPC module | <pre>object({<br>    cidr                 = string<br>    public_subnet_cidrs  = list(string)<br>    private_subnet_cidrs = list(string)<br>    availability_zones   = list(string)<br>  })</pre> | n/a | yes |
+| <a name="input_tfc_tier"></a> [tfc\_tier](#input\_tfc\_tier) | n/a | `string` | `"free"` | no |
+| <a name="input_tfe"></a> [tfe](#input\_tfe) | n/a | <pre>object({<br>    org        = string<br>    project    = string<br>    workspaces = map(string)<br>  })</pre> | <pre>{<br>  "org": "<org_name>",<br>  "project": "dynamic-saas-cluster-aws-vault",<br>  "workspaces": {<br>    "cloud9": "dynamic-saas-cluster-aws-cloud9",<br>    "infra": "dynamic-saas-cluster-aws-infra"<br>  }<br>}</pre> | no |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_ACCOUNT_ID"></a> [ACCOUNT\_ID](#output\_ACCOUNT\_ID) | n/a |
-| <a name="output_AWSCLI_IMAGE_TAG"></a> [AWSCLI\_IMAGE\_TAG](#output\_AWSCLI\_IMAGE\_TAG) | n/a |
-| <a name="output_AWSCLI_REPO_NAME"></a> [AWSCLI\_REPO\_NAME](#output\_AWSCLI\_REPO\_NAME) | n/a |
-| <a name="output_AWS_REGION"></a> [AWS\_REGION](#output\_AWS\_REGION) | n/a |
-| <a name="output_EKS_CLUSTER_NAME"></a> [EKS\_CLUSTER\_NAME](#output\_EKS\_CLUSTER\_NAME) | n/a |
-| <a name="output_RANDOM_STRING"></a> [RANDOM\_STRING](#output\_RANDOM\_STRING) | n/a |
-| <a name="output_REPO_URI_AWSCLI"></a> [REPO\_URI\_AWSCLI](#output\_REPO\_URI\_AWSCLI) | n/a |
-| <a name="output_REPO_URI_VAULT"></a> [REPO\_URI\_VAULT](#output\_REPO\_URI\_VAULT) | n/a |
-| <a name="output_TENANT_SA_ROLE_ARN"></a> [TENANT\_SA\_ROLE\_ARN](#output\_TENANT\_SA\_ROLE\_ARN) | n/a |
-| <a name="output_VAULT_AGENT_TEMPLATES_BUCKET"></a> [VAULT\_AGENT\_TEMPLATES\_BUCKET](#output\_VAULT\_AGENT\_TEMPLATES\_BUCKET) | n/a |
-| <a name="output_VAULT_IMAGE_TAG"></a> [VAULT\_IMAGE\_TAG](#output\_VAULT\_IMAGE\_TAG) | n/a |
-| <a name="output_VAULT_K8S_ECR_URI"></a> [VAULT\_K8S\_ECR\_URI](#output\_VAULT\_K8S\_ECR\_URI) | n/a |
-| <a name="output_VAULT_K8S_IMAGE_TAG"></a> [VAULT\_K8S\_IMAGE\_TAG](#output\_VAULT\_K8S\_IMAGE\_TAG) | n/a |
-| <a name="output_VAULT_NS"></a> [VAULT\_NS](#output\_VAULT\_NS) | n/a |
-| <a name="output_VAULT_REPO_NAME"></a> [VAULT\_REPO\_NAME](#output\_VAULT\_REPO\_NAME) | n/a |
-| <a name="output_VAULT_ROLE"></a> [VAULT\_ROLE](#output\_VAULT\_ROLE) | n/a |
-| <a name="output_VAULT_SA_ROLE_ARN"></a> [VAULT\_SA\_ROLE\_ARN](#output\_VAULT\_SA\_ROLE\_ARN) | n/a |
+No outputs.
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 </details>

@@ -23,7 +23,9 @@ module "vpc" {
 }
 
 #### Random string generator ####
-resource "random_pet" "random_pet" {}
+resource "random_pet" "random_pet" {
+  length = 1
+}
 
 #### Cloud 9 Resources ####
 resource "aws_cloud9_environment_ec2" "saas_cloud9" {
@@ -36,14 +38,14 @@ resource "aws_cloud9_environment_ec2" "saas_cloud9" {
 
 
 resource "aws_iam_instance_profile" "cloud9_ssm_profile" {
-  count = var.cloud9_default_role_exists == "false" ? 1 : 0
+  count = var.cloud9_default_role_exists == false ? 1 : 0
   name  = "AWSCloud9SSMInstanceProfile"
   role  = aws_iam_role.cloud9_ssm_role[0].name
   path  = "/cloud9/"
 }
 
 resource "aws_iam_role" "cloud9_ssm_role" {
-  count               = var.cloud9_default_role_exists == "false" ? 1 : 0
+  count               = var.cloud9_default_role_exists == false ? 1 : 0
   name                = "AWSCloud9SSMAccessRole"
   managed_policy_arns = ["arn:aws:iam::aws:policy/AWSCloud9SSMInstanceProfile"]
   assume_role_policy  = data.aws_iam_policy_document.cloud9_ssm_assume_role_policy.json
