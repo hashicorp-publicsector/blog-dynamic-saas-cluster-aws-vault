@@ -40,6 +40,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 1. Authenticate With Terraform Cloud:
     - Run `terraform login`
     - Enter `yes` and create a new token from the GUI when prompted.  Save this token to a scratch file for later use.  DO NOT CHECK THIS TOKEN INTO SOURCE CONTROL.  
+    - Update `variables.auto.tfvars` with the name of your Terraform Cloud Organization
 
 1. Configure Terraform Cloud via these Terraform commands:  
 
