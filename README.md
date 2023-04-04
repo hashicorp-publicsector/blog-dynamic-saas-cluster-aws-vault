@@ -34,7 +34,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 
     ```bash
     git clone [url]  
-    cd dynamic-saas-cluster-aws-vault/  
+    cd blog-dynamic-saas-cluster-aws-vault/  
     ```
 
 1. Authenticate With Terraform Cloud:
@@ -92,7 +92,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 
 6. In the Cloud9 IDE, **clone the repo** and resume provisioning with Terraform:
     - Click `Window` -> `New Terminal` and enter the following commands:
-    - `cd dynamic-saas-cluster-aws-vault/deployment/infra [press enter]`
+    - `cd blog-dynamic-saas-cluster-aws-vault/deployment/infra [press enter]`
 
 1. Authenticate/Configure Terraform Cloud:
     - Run `terraform login`
@@ -115,7 +115,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 7. Install k8s dependencies:
     - Click `Window` -> `New Terminal` and enter the following commands:
     ```bash
-    cd dynamic-saas-cluster-aws-vault/scripts/ [press enter]
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/ [press enter]
     chmod +x install-k8s-tools.sh
     ./install-k8s-tools.sh
     ```  
@@ -125,7 +125,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 8. Initialize Vault:
     - In the same window as Step 7, cd into the vault directory
     ```bash
-    cd dynamic-saas-cluster-aws-vault/scripts/vault/ [press enter]
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/vault/ [press enter]
     chmod +x init-vault.sh
     ./init-vault.sh
     ```  
@@ -135,7 +135,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
 9. Deploy Sample Silo Tenants:
     - Click `Window` -> `New Terminal` and enter the following commands:
     ```bash
-    cd dynamic-saas-cluster-aws-vault/scripts/silo/ [press enter]
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/silo/ [press enter]
     chmod +x deploy-siloed-tenants.sh
     ./deploy-siloed-tenants.sh
     ```
@@ -157,7 +157,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
     c. Save the file, then run  
 
       ```bash  
-      cd dynamic-saas-cluster-aws-vault/scripts/test-cases/  
+      cd blog-dynamic-saas-cluster-aws-vault/scripts/test-cases/  
       chmod +x shell-into-tenant-container.sh  
       ./shell-into-tenant-container.sh  
       ```  
@@ -177,7 +177,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
     - Click `Window` -> `New Terminal` and enter the following commands:  
 
     ```bash  
-    cd dynamic-saas-cluster-aws-vault/scripts/pool  
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/pool  
     chmod +x deploy-pooled-tenants.sh  
     ./deploy-pooled-tenants.sh  
     ```
@@ -198,7 +198,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
     - Run the following command in the "Pooled Tenants" shell window  
 
     ```bash  
-    cd dynamic-saas-cluster-aws-vault/scripts/pool  
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/pool  
     chmod +x deploy-pool-sub-tenants.sh  
     ./deploy-pool-sub-tenants.sh  
     ```
@@ -216,7 +216,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
     c. Save the file, then run  
 
     ```bash  
-    cd dynamic-saas-cluster-aws-vault/scripts/test-cases/  
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/test-cases/  
     chmod +x shell-into-tenant-container.sh  
     ./shell-into-tenant-container.sh  
     ```  
@@ -253,7 +253,7 @@ The deployed components can be cleaned up via the following procedure. We'll wor
 1. Run the cleanup script via a new terminal window  
     - Click `Window` -> `New Terminal` and enter the following commands:  
     ```bash  
-    cd dynamic-saas-cluster-aws-vault/scripts/cleanup/ [press enter]  
+    cd blog-dynamic-saas-cluster-aws-vault/scripts/cleanup/ [press enter]  
     chmod +x cleanup.sh  
     ./cleanup.sh  
     ```  
@@ -286,7 +286,7 @@ The deployed components can be cleaned up via the following procedure. We'll wor
 
 ### Local Workstation  
 1. On your local workstation, destroy the Cloud9 environment created by Terraform Cloud:  
-    `cd dynamic-saas-cluster-aws-vault/deployment/cloud9 [press enter]`  
+    `cd blog-dynamic-saas-cluster-aws-vault/deployment/cloud9 [press enter]`  
 
     ```hcl  
     terraform init [press enter]  
