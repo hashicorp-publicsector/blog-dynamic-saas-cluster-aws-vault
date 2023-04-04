@@ -90,7 +90,7 @@ This method uses the CLI-driven Workflow to provision a Cloud9 instance in AWS f
     - Right-click the EC2 instance and in the fly-out menu, click `Security` -> `Modify IAM Role`
     - Choose the Role you created in the step above. It should be titled `dynamic-policy-ref-arch-admin` and click  `Save`.
 
-6. In the Cloud9 IDE, clone the repo and resume provisioning with Terraform:
+6. In the Cloud9 IDE, **clone the repo** and resume provisioning with Terraform:
     - Click `Window` -> `New Terminal` and enter the following commands:
     - `cd dynamic-saas-cluster-aws-vault/deployment/infra [press enter]`
 
