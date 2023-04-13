@@ -15,6 +15,7 @@ resource "tfe_workspace" "free-cloud9" {
   project_id                = tfe_project.main.id
   execution_mode            = "local"
   remote_state_consumer_ids = [tfe_workspace.free-infra[0].id]
+  global_remote_state = false
 }
 
 resource "tfe_workspace" "free-infra" {
